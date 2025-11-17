@@ -1,6 +1,6 @@
 const CACHE_NAME = 'loffa-cache-v1';
 
-// Prefix path GitHub Pages
+// prefix folder GitHub Pages
 const BASE = '/loffa-app';
 
 const urlsToCache = [
@@ -33,13 +33,9 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  let requestURL = event.request.url;
-
-  // Re-route to subfolder when served
-  if (requestURL.includes('/loffa-app/')) {
+  if (event.request.url.includes(BASE)) {
     event.respondWith(
-      caches.match(event.request)
-        .then(response => response || fetch(event.request))
+      caches.match(event.request).then(response => response || fetch(event.request))
     );
   }
 });
