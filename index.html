@@ -1,0 +1,2785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOFFA Loss Focus and Fatigue Alert System</title>
+<link rel="stylesheet" href="all.css">
+<link rel="icon" href="data:image/x-icon;base64,AAABAAMAAAAAAAABAAEAAAAAAAACAAQ=">
+<script src="assets/chart.js"></script>
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Service Worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js');
+    });
+  }
+</script>
+<style>
+* {
+  box-sizing: border-box; /* Applied globally for consistency */
+}
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+}
+#main-title {
+  color: #2c3e50;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  font-size: 3em;
+  margin-bottom: 0;
+  text-align: center; /* Added */
+}
+#sub-title {
+  color: #2c3e50;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  font-size: 1em;
+  margin-top: -10px;
+  margin-bottom: 20px;
+  text-align: center; /* Added */
+}
+.tab-container {
+  width: 550px;
+  max-width: 100%; /* --- MODIFIED --- */
+  margin-top: 20px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  overflow: hidden;
+  display: none; /* Initially hidden before login */
+}
+.tab-buttons {
+  display: flex;
+  background: #34495e;
+}
+.tab-button {
+  flex: 1;
+  padding: 12px;
+  color: white;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.3s, transform 0.2s;
+  font-weight: bold;
+}
+.tab-button:hover {
+  background: #2c3e50;
+  transform: translateY(-2px);
+}
+.tab-button.active {
+  background: #2980b9;
+}
+.tab-content {
+  display: none;
+  padding: 20px;
+}
+.tab-content.active {
+  display: block;
+}
+/* --- PERUBAHAN BESAR PADA LAYAR VIDEO --- */
+#videoContainer {
+  position: relative;
+  width: 480px;
+  max-width: 100%;
+  /* --- BARU: Rasio (4 * 0.8) / (3 * 1.1) = 3.2 / 3.3 --- */
+  aspect-ratio: 3.2 / 3.3;
+  margin: 20px auto;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+/* === PERBAIKAN TULISAN TERBALIK (START) === */
+/* Aturan ini sekarang SPESIFIK untuk video di dalam #videoContainer */
+#videoContainer video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform: scaleX(-1);
+  object-fit: cover; /* Ini membuat <video> ter-crop, tidak gepeng */
+}
+/* Aturan ini sekarang SPESIFIK untuk canvas di dalam #videoContainer */
+#videoContainer canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform: scaleX(-1);
+}
+/* === PERBAIKAN TULISAN TERBALIK (END) === */
+/* --- AKHIR PERUBAHAN LAYAR VIDEO --- */
+/* --- BARU: Tools Pengaturan Layar --- */
+#screenControls {
+  width: 480px;
+  max-width: 100%;
+  margin: 10px auto 0 auto;
+  padding: 10px;
+  background: #ecf0f1;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.control-slider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.control-slider label {
+  font-size: 14px;
+  color: #2c3e50;
+  min-width: 60px;
+}
+.control-slider input[type="range"] {
+  flex: 1;
+  margin-left: 10px;
+}
+.control-slider span {
+  margin-left: 10px;
+  font-size: 14px;
+  color: #2c3e50;
+}
+/* --- AKHIR TOOLS PENGATURAN LAYAR --- */
+#sensitivityControls {
+  width: 480px;
+  max-width: 100%;
+  margin: 10px auto 0 auto;
+  padding: 10px;
+  background: #ecf0f1;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+#sensitivityControls button {
+  margin-top: 10px;
+  width: 100%;
+}
+/* === PERUBAHAN YANG DIMINTA (START) === */
+#status {
+  /* Properti baru untuk menyamakan lebar & centering */
+  width: 480px;
+  max-width: 100%;
+  margin: 12px auto 0; /* Menggantikan margin-top dan menambahkan 'auto' */
+ 
+  /* Properti yang sudah ada */
+  font-weight: bold;
+  color: #2c3e50;
+  background: #ecf0f1;
+  padding: 8px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  text-align: center;
+  /* === BARU: Agar teks tidak pecah === */
+  word-break: break-word;
+  line-height: 1.4;
+}
+/* === PERUBAHAN YANG DIMINTA (END) === */
+.alert {
+  background: #e74c3c;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-top: 10px;
+  display: none;
+  animation: shake 0.5s;
+  font-weight: bold;
+  text-align: center;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+#snapshotPreview {
+  margin-top: 20px;
+  display: none;
+  text-align: center;
+  width: 480px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto; /* Ensure centered */
+}
+#snapshotPreview img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.logContainer {
+  width: 90%; /* Reduced to 90% */
+  margin: 0 auto;
+  background: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  padding: 15px;
+  font-size: 14px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+.logContainer div {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+.logContainer div:hover {
+  background: #e0f7fa;
+}
+#configPage {
+  width: 100%;
+}
+#configPage label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #34495e;
+}
+#configPage input {
+  width: 100%; /* As wide as the table */
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #bdc3c7;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+#configTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+#configTable th, #configTable td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+}
+#configTable th {
+  background: #34495e;
+  color: white;
+}
+#configTable button {
+  padding: 6px 12px;
+  margin: 0 5px;
+  font-size: 14px;
+}
+.camera-buttons {
+  display: flex;
+  justify-content: space-between;
+  width: 480px;
+  max-width: 100%;
+  margin: 20px auto;
+}
+/* Toast Notification */
+#toastContainer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+.toast {
+  background: #2ecc71;
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateY(-20px);
+  animation: toastIn 0.5s forwards, toastOut 0.5s 4.5s forwards;
+  display: flex;
+  align-items: center;
+}
+.toast.error {
+  background: #e74c3c;
+}
+.toast i {
+  margin-right: 10px;
+  font-size: 18px;
+}
+@keyframes toastIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastOut {
+  to { opacity: 0; transform: translateY(-20px); }
+}
+/* Login and Signup Styles */
+#authContainer {
+  width: 400px;
+  max-width: 100%;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  padding: 30px;
+  text-align: center;
+}
+#authContainer h2 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+#authContainer input {
+  width: 100%; /* Same as buttons */
+  box-sizing: border-box; /* Ensure padding does not add width */
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #bdc3c7;
+  border-radius: 6px;
+}
+#authContainer button {
+  width: 100%; /* Same as inputs */
+  box-sizing: border-box; /* Ensure padding does not add width */
+  margin: 10px 0;
+}
+#toggleAuth {
+  background: none;
+  color: #3498db;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+#logoutBtn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
+}
+/* Timezone Select */
+#timezoneConfig {
+  margin-bottom: 20px;
+}
+#timezoneConfig label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #34495e;
+}
+#timezoneSelect {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #bdc3c7;
+  border-radius: 6px;
+}
+/* Daily Review Styles */
+#dailyReviewTab .reviewContainer {
+  width: 100%;
+  background: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  padding: 15px;
+}
+/* === PERBAIKAN GRAFIK: CSS untuk Kontainer Grafik === */
+/* === PERBAIKAN GRAFIK: CSS untuk Kontainer Grafik === */
+#chartContainer {
+  position: relative; /* Penting untuk Chart.js */
+  width: 100%;
+  max-width: 500px; /* Batasi lebar maksimum */
+  height: 300px; /* Beri ketinggian yang tetap */
+  margin: 10px auto; /* Pusatkan kontainer */
+}
+#dailyChart {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* === BARU: CSS untuk 3 Chart Terpisah === */
+.chartContainer {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  height: 250px;
+  margin: 10px auto;
+}
+
+#dailyReviewTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+#dailyReviewTable th, #dailyReviewTable td {
+  border: 1px solid #ddd;
+  padding: 10px 15px; /* Wider padding */
+  text-align: left;
+  word-wrap: break-word; /* Break long words */
+  white-space: normal; /* Allow text wrap */
+  line-height: 1.2; /* For multi-line headers */
+}
+#dailyReviewTable th {
+  background: #34495e;
+  color: white;
+}
+/* === PERUBAHAN BARU: Gaya untuk tabel config laporan === */
+#reportConfigTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+#reportConfigTable th, #reportConfigTable td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+#reportConfigTable th {
+  background: #34495e;
+  color: white;
+}
+/* === PERUBAHAN BARU: Gaya untuk 3 tombol laporan === */
+#reportConfigTable button {
+  padding: 5px 10px;
+  margin: 2px;
+  font-size: 12px;
+  width: 90px; /* Beri lebar tetap agar rapi */
+  display: inline-block;
+}
+/* === AKHIR PERUBAHAN === */
+/* Class for full-width inputs same as table */
+.input-full {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #bdc3c7;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+  box-sizing: border-box; /* Ensure width includes border and padding */
+}
+/* --- MODIFIED: Improved Responsive Block --- */
+@media (max-width: 600px) {
+  body {
+    padding: 10px; /* Reduce body padding on small screens */
+  }
+  #main-title {
+    font-size: 2em; /* Smaller title */
+  }
+  #sub-title {
+    font-size: 0.9em; /* Smaller subtitle */
+  }
+  .tab-container {
+    width: 100%;
+    padding: 0 5px; /* Tighter padding */
+    margin-top: 10px;
+  }
+  /* Reduce tab button font to fit */
+  .tab-button {
+    font-size: 10px;
+    padding: 10px 4px;
+    line-height: 1.2;
+  }
+  .tab-content {
+    padding: 10px; /* Reduce content padding */
+  }
+  #videoContainer {
+    width: 100%;
+  }
+  .camera-buttons {
+    width: 100%;
+  }
+  #snapshotPreview {
+    width: 100%;
+  }
+  #authContainer {
+    width: 100%;
+    padding: 20px;
+  }
+  .logContainer {
+    width: 100%;
+  }
+  #dailyReviewTable th, #dailyReviewTable td {
+    padding: 8px 10px; /* Adjust padding for small screens */
+  }
+  /* --- BARU: Atur tools di layar kecil --- */
+  #screenControls {
+    padding: 5px;
+  }
+  .control-slider label {
+    font-size: 12px;
+    min-width: 50px;
+  }
+  /* --- AKHIR --- */
+ 
+  /* === PERUBAHAN BARU: Atur tombol toggle di layar kecil === */
+  #toggleSettingsBtn {
+      width: 100%;
+  }
+  /* === PERBAIKAN GRAFIK: Buat tinggi grafik lebih kecil di HP === */
+  #chartContainer {
+      height: 250px; /* Ketinggian lebih rendah untuk layar kecil */
+  }
+ 
+  /* === PERUBAHAN YANG DIMINTA (Responsive) === */
+  /* Pastikan #status juga 100% di layar kecil, sama seperti tombolnya */
+  #status {
+      width: 100%;
+  }
+  /* === PERUBAHAN BARU: Buat tombol laporan responsif === */
+  #reportConfigTable button {
+      width: 100%; /* Buat tombol full-width di HP */
+      margin: 3px 0;
+  }
+  #reportConfigTable td:last-child {
+      text-align: center;
+  }
+}
+/* === START: CALIBRATION STYLES (FROM FILE 1) === */
+#calibVideoContainer {
+  position: relative;
+  width: 480px;
+  max-width: 100%;
+  aspect-ratio: 3.2 / 3.3;
+  margin: 20px auto;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+#calibVideoContainer video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform: scaleX(-1);
+  object-fit: cover;
+}
+#calibVideoContainer canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform: scaleX(-1);
+}
+#calibStatus {
+  margin-top: 12px;
+  font-weight: bold;
+  color: #2c3e50;
+  background: #ecf0f1;
+  padding: 8px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  text-align: center;
+  width: 480px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  /* === BARU: Agar teks tidak pecah === */
+  word-break: break-word;
+  line-height: 1.4;
+}
+#calibSteps {
+  width: 480px;
+  max-width: 100%;
+  margin: 20px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+/* === GAYA BARU UNTUK KOTAK STEP DINAMIS === */
+.step {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f9f9f9;
+  /* Transisi untuk fade-in/out (opsional) */
+  /* animation: fadeIn 0.5s; */
+}
+/* @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } */
+.step h3 {
+  margin-bottom: 10px;
+  color: #34495e;
+}
+.step button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.step button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+.step .result {
+  margin-top: 10px;
+  font-weight: bold;
+  color: #2ecc71;
+}
+.step ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+.step li {
+  background: #ecf0f1;
+  padding: 8px;
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
+/* === AKHIR GAYA BARU === */
+/* === PERMINTAAN BARU: Gaya untuk Snapshot Kalibrasi === */
+.calib-snapshot {
+  margin-top: 15px;
+  border-top: 1px dashed #ccc;
+  padding-top: 15px;
+}
+.calib-snapshot h4 {
+  margin: 0 0 10px 0;
+  color: #2980b9;
+  text-align: center;
+}
+.calib-snapshot img {
+  width: 100%;
+  max-width: 240px; /* Setengah lebar kontainer utama */
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  margin: 0 auto 10px auto;
+  display: block;
+}
+.calib-snapshot p {
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  background: #ecf0f1;
+  padding: 5px;
+  border-radius: 5px;
+}
+/* === AKHIR PERMINTAAN BARU === */
+button#startCalibCamera, button#stopCalibCamera {
+  margin-top: 20px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+button#stopCalibCamera {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+button#startCalibCamera:hover, button#stopCalibCamera:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+#calibCountdownOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  font-size: 5em;
+  color: white;
+  display: none;
+}
+@media (max-width: 600px) {
+  #calibVideoContainer, #calibStatus, #calibSteps {
+      width: 100%;
+  }
+}
+/* === END: CALIBRATION STYLES === */
+/* === PERUBAHAN BARU: Gaya untuk Tombol Toggle dan Kontainer === */
+#toggleSettingsBtn {
+  width: 480px;
+  max-width: 100%;
+  margin: 10px auto 0 auto; /* Mencocokkan #screenControls */
+  display: block; /* Agar margin auto berfungsi */
+  background: #95a5a6; /* Warna abu-abu netral */
+}
+#toggleSettingsBtn:hover {
+  background: #7f8c8d;
+}
+#settingsContainer {
+  display: none; /* Sembunyikan secara default */
+}
+/* === AKHIR PERUBAHAN BARU === */
+</style>
+</head>
+<body>
+<h1 id="main-title">LOFFA</h1>
+<h2 id="sub-title">Loss Focus and Fatigue Alert System</h2>
+<div id="authContainer">
+  <h2 id="authTitle">Login</h2>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <button id="authBtn">Login</button>
+  <button id="toggleAuth">Don't have an account? Sign up here</button>
+</div>
+<button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+<div class="tab-container" id="mainApp">
+  <div class="tab-buttons">
+    <button class="tab-button active" data-tab="video">Moni-<br>tor <i class="fas fa-video"></i></button>
+    <button class="tab-button" data-tab="config">Confi-<br>guration <i class="fas fa-cog"></i></button>
+    <button class="tab-button" data-tab="calibration">Cali-<br>bration <i class="fas fa-ruler-combined"></i></button>
+    <button class="tab-button" data-tab="generalLog">General Log <i class="fas fa-file-lines"></i></button>
+    <button class="tab-button" data-tab="drowsyLog">Fatigue & Loss of Focus Log <i class="fas fa-bed"></i></button>
+    <button class="tab-button" data-tab="yawnLog">Yawn & Laugh Log <i class="fas fa-laugh"></i></button>
+    <button class="tab-button" data-tab="dailyReview">Daily Table <i class="fas fa-calendar-alt"></i></button>
+  </div>
+  <div id="videoTab" class="tab-content active">
+    <div id="videoContainer">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="canvas"></canvas>
+    </div>
+    <button id="toggleSettingsBtn">
+        <i class="fas fa-eye"></i> Show Display & Sensitivity Settings
+    </button>
+   
+    <div id="settingsContainer">
+      <div id="screenControls">
+        <div class="control-slider">
+          <label for="zoomSlider">Zoom:</label>
+          <input type="range" id="zoomSlider" min="1" max="3" value="1" step="0.05">
+        </div>
+        <div class="control-slider">
+          <label for="panXSlider">Pan X:</label>
+          <input type="range" id="panXSlider" min="-1" max="1" value="0" step="0.05">
+        </div>
+        <div class="control-slider">
+          <label for="panYSlider">Pan Y:</label>
+          <input type="range" id="panYSlider" min="-1" max="1" value="0" step="0.05">
+        </div>
+      </div>
+      <div id="sensitivityControls">
+        <div class="control-slider">
+          <label for="earThreshold">EAR Threshold:</label>
+          <input type="range" id="earThreshold" min="0.1" max="0.5" value="0.2" step="0.01">
+          <span id="earThresholdValue">0.2</span>
+        </div>
+        <div class="control-slider">
+          <label for="drowsyTime">Drowsy Time (ms):</label>
+          <input type="range" id="drowsyTime" min="500" max="5000" value="1000" step="100">
+          <span id="drowsyTimeValue">1000</span>
+        </div>
+        <div class="control-slider">
+          <label for="marThreshold">MAR Threshold:</label>
+          <input type="range" id="marThreshold" min="0.3" max="0.7" value="0.5" step="0.01">
+          <span id="marThresholdValue">0.5</span>
+        </div>
+        <div class="control-slider">
+          <label for="yawnCooldown">Yawn Cooldown (ms):</label>
+          <input type="range" id="yawnCooldown" min="1000" max="10000" value="3000" step="100">
+          <span id="yawnCooldownValue">3000</span>
+        </div>
+        <div class="control-slider">
+          <label for="headDownThreshold">Head Down Threshold:</label>
+          <input type="range" id="headDownThreshold" min="1.0" max="2.0" value="1.5" step="0.01">
+          <span id="headDownThresholdValue">1.5</span>
+        </div>
+        <div class="control-slider">
+          <label for="headDownTime">Head Down Time (ms):</label>
+          <input type="range" id="headDownTime" min="1000" max="10000" value="3000" step="100">
+          <span id="headDownTimeValue">3000</span>
+        </div>
+       
+        <div class="control-slider">
+          <label for="headTurnThreshold">Head Turn Threshold:</label>
+          <input type="range" id="headTurnThreshold" min="1.5" max="3.0" value="1.8" step="0.1">
+          <span id="headTurnThresholdValue">1.8</span>
+        </div>
+        <div class="control-slider">
+          <label for="headTurnTime">Head Turn Time (ms):</label>
+          <input type="range" id="headTurnTime" min="1000" max="5000" value="2000" step="100">
+          <span id="headTurnTimeValue">2000</span>
+        </div>
+        <div class="control-slider">
+          <label for="faceLostTime">Face Lost Time (ms):</label>
+          <input type="range" id="faceLostTime" min="1000" max="10000" value="3000" step="100">
+          <span id="faceLostTimeValue">3000</span>
+        </div>
+        <button id="saveSensitivity"><i class="fas fa-save"></i> Save Sensitivity Settings</button>
+      </div>
+    </div>
+    <div id="status">Status: <span id="statusText">Waiting for camera...</span></div>
+    <div class="alert" id="alertBox">Fatigue or Loss of Focus detected! <i class="fas fa-exclamation-triangle"></i></div>
+    <div class="camera-buttons">
+      <button id="startBtn"><i class="fas fa-play"></i> Start Monitoring</button>
+      <button id="stopBtn" disabled><i class="fas fa-stop"></i> Stop Camera</button>
+    </div>
+    <div id="snapshotPreview">
+      <h3>Last Photo:</h3>
+      <img id="snapshotImg" alt="snapshot">
+    </div>
+  </div>
+  <div id="configTab" class="tab-content">
+    <div id="timezoneConfig">
+      <h3>Select Time Zone</h3>
+      <label for="timezoneSelect">Local Time Zone:</label>
+      <select id="timezoneSelect">
+        <option value="UTC">UTC</option>
+        <option value="Asia/Jakarta">Asia/Jakarta (WIB)</option>
+        <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
+        <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
+        <option value="America/New_York">America/New_York (EST)</option>
+        <option value="Europe/London">Europe/London (GMT)</option>
+        </select>
+      <button id="saveTimezone"><i class="fas fa-save"></i> Save Time Zone</button>
+    </div>
+    <div id="configPage">
+      <h3>Telegram Configuration</h3>
+      <input type="hidden" id="editIndex" value="-1">
+      <label for="ownerName">Owner Name:</label>
+      <input type="text" id="ownerName" class="input-full" placeholder="Enter Owner Name">
+      <label for="botToken">Bot Token:</label>
+      <input type="text" id="botToken" class="input-full" placeholder="Enter Telegram Bot Token">
+      <label for="chatId">Chat ID:</label>
+      <input type="text" id="chatId" class="input-full" placeholder="Enter Chat ID">
+      <button id="saveConfig"><i class="fas fa-save"></i> Save</button>
+      <button id="cancelConfig"><i class="fas fa-times"></i> Cancel</button>
+      <table id="configTable">
+        <thead>
+          <tr>
+            <th>Owner Name</th>
+            <th>Bot Token</th>
+            <th>Chat ID</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="configTableBody"></tbody>
+      </table>
+    </div>
+   
+    </div>
+  <div id="generalLogTab" class="tab-content">
+    <div class="logContainer">
+      <h3>General Log:</h3>
+      <div id="logContent"></div>
+    </div>
+  </div>
+  <div id="drowsyLogTab" class="tab-content">
+    <div class="logContainer">
+      <h3>Fatigue & Loss of Focus Detection Log:</h3>
+      <div id="drowsyLogContent"></div>
+    </div>
+  </div>
+  <div id="yawnLogTab" class="tab-content">
+    <div class="logContainer">
+      <h3>Yawn & Laugh Detection Log:</h3>
+      <div id="yawnLogContent"></div>
+    </div>
+  </div>
+ 
+  <div id="dailyReviewTab" class="tab-content">
+   
+    <div class="reviewContainer">
+      <h3>Focus Hours Chart</h3>
+      <div class="chartContainer"><canvas id="focusChart"></canvas></div>
+    </div>
+    <div class="reviewContainer">
+      <h3>Fatigue / Loss of Focus Chart</h3>
+      <div class="chartContainer"><canvas id="fatigueChart"></canvas></div>
+    </div>
+    <div class="reviewContainer">
+      <h3>Yawn / Laugh Chart</h3>
+      <div class="chartContainer"><canvas id="yawnChart"></canvas></div>
+    </div>
+    <div class="reviewContainer" style="margin-top: 20px;">
+      <h3>Daily Table</h3>
+      <table id="dailyReviewTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Total<br>Focus<br>Hours</th>
+            <th>Fatigue<br>/Loss of Focus<br>Count</th>
+            <th>Yawn<br>/Laugh<br>Count</th>
+          </tr>
+        </thead>
+        <tbody id="dailyReviewTableBody"></tbody>
+      </table>
+    </div>
+    <div class="reviewContainer" style="margin-top: 20px;">
+      <h3>Send Report to Registered Users</h3>
+      <p>Click a button to send a time-specific report to a user.</p>
+      <table id="reportConfigTable">
+        <thead>
+          <tr>
+            <th>Owner Name</th>
+            <th>Chat ID</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="reportConfigTableBody">
+            </tbody>
+      </table>
+    </div>
+  </div>
+  <div id="calibrationTab" class="tab-content">
+    <div id="calibrationWrapper">
+        <h3 style="text-align: center; color: #2c3e50;">Face Metric Calibration</h3>
+        <p style="text-align: center; font-size: 14px; color: #34495e;">Use this tool to find your personal thresholds. The suggested values will be automatically applied to the sensitivity sliders above.</p>
+        <div style="text-align: center;">
+            <button id="startCalibCamera"><i class="fas fa-play"></i> Start Camera for Calibration</button>
+            <button id="stopCalibCamera" style="display: none;"><i class="fas fa-stop"></i> Stop Calibration Camera</button>
+        </div>
+        <div id="calibVideoContainer" style="display: none;">
+            <video id="calibVideo" autoplay muted playsinline></video>
+            <canvas id="calibCanvas"></canvas>
+        </div>
+        <div id="calibStatus" style="display: none;">Status: Waiting for calibration camera...</div>
+       
+        <div id="calibSteps" style="display: none;">
+             <div id="calibStepContainer">
+                </div>
+        </div>
+        <div id="calibCountdownOverlay"></div>
+    </div>
+  </div>
+</div> <div id="toastContainer"></div>
+<script src="assets/mediapipe/face_mesh/face_mesh.js"></script>
+<script src="assets/mediapipe/drawing_utils.js"></script>
+<script>
+// Tambahkan debug ini di awal JS
+console.log('MediaPipe scripts loaded. Checking FaceMesh...');
+if (typeof FaceMesh === 'undefined') {
+  console.error('FaceMesh not defined - check if face_mesh.js loaded correctly');
+} else {
+  console.log('FaceMesh ready');
+}
+// Setelah deklarasi faceMesh dan calibFaceMesh di atas
+const faceMesh = new FaceMesh({
+  locateFile: (file) => `assets/mediapipe/face_mesh/${file}`,  // Tambah /face_mesh/ di akhir
+});
+faceMesh.setOptions({
+  maxNumFaces: 1,
+  refineLandmarks: true,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+faceMesh.onResults(onResults); // Main monitoring
+const calibFaceMesh = new FaceMesh({
+  locateFile: (file) => `assets/mediapipe/face_mesh/${file}`,
+});
+calibFaceMesh.setOptions({
+  maxNumFaces: 1,
+  refineLandmarks: true,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+calibFaceMesh.onResults(onCalibResults); // Calibration
+// === PERUBAHAN BARU: Variabel global untuk Chart ===
+let myDailyChart = null;
+// === SISTEM AUTENTIKASI ===
+let currentUser = null;
+let selectedTimeZone = 'UTC'; // Default
+const users = JSON.parse(localStorage.getItem('users')) || {}; // { username: { password: 'hash', data: { configs: [], emails: [], timezone: 'UTC', logs: { general: [], drowsy: [], yawn: [] }, sensitivity: {}, calibrationData: {} } } }
+// === BARU: Variabel Global untuk Kontrol Layar ===
+let currentZoom = 1;
+let currentPanX = 0;
+let currentPanY = 0;
+// === VARIABEL SENSITIVITY (DEFAULT SEPERTI KODE) ===
+let earThreshold = 0.2;
+let drowsyTime = 1000;
+let marThreshold = 0.5;
+let yawnCooldown = 3000;
+let headDownThreshold = 1.5;
+let headDownTime = 3000;
+// === PERMINTAAN BARU: Deteksi Kepala Menoleh ===
+let headTurnThreshold = 1.8; // Ini adalah ambang batas MAKS (misal, 1.8). Ambang batas MIN akan dihitung (1 / 1.8 = 0.55)
+let headTurnMinThreshold = 1 / 1.8;
+let headTurnTime = 2000;
+// === PERMINTAAN BARU: Deteksi Wajah Hilang ===
+let faceLostTime = 3000;
+const authContainer = document.getElementById('authContainer');
+const authTitle = document.getElementById('authTitle');
+const authBtn = document.getElementById('authBtn');
+const toggleAuth = document.getElementById('toggleAuth');
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
+const mainApp = document.getElementById('mainApp');
+const logoutBtn = document.getElementById('logoutBtn');
+// === BARU: Elemen Kontrol Layar ===
+const zoomSlider = document.getElementById('zoomSlider');
+const panXSlider = document.getElementById('panXSlider');
+const panYSlider = document.getElementById('panYSlider');
+// === PERUBAHAN BARU: Elemen untuk Toggle Settings ===
+const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
+const settingsContainer = document.getElementById('settingsContainer');
+// === BARU: Event Listener untuk Kontrol Layar ===
+zoomSlider.addEventListener('input', (e) => {
+  currentZoom = parseFloat(e.target.value);
+});
+panXSlider.addEventListener('input', (e) => {
+  currentPanX = parseFloat(e.target.value);
+});
+panYSlider.addEventListener('input', (e) => {
+  currentPanY = parseFloat(e.target.value);
+});
+// === PERUBAHAN BARU: Event Listener untuk Tombol Toggle ===
+toggleSettingsBtn.addEventListener('click', () => {
+  if (settingsContainer.style.display === 'none' || settingsContainer.style.display === '') {
+    settingsContainer.style.display = 'block';
+    toggleSettingsBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Settings';
+    toggleSettingsBtn.style.background = '#e74c3c'; // Ganti warna jadi merah
+  } else {
+    settingsContainer.style.display = 'none';
+    toggleSettingsBtn.innerHTML = '<i class="fas fa-eye"></i> Show Display & Sensitivity Settings';
+    toggleSettingsBtn.style.background = '#95a5a6'; // Kembali ke abu-abu
+  }
+});
+// === BARU: Elemen Sensitivity Controls ===
+const earThresholdSlider = document.getElementById('earThreshold');
+const earThresholdValue = document.getElementById('earThresholdValue');
+const drowsyTimeSlider = document.getElementById('drowsyTime');
+const drowsyTimeValue = document.getElementById('drowsyTimeValue');
+const marThresholdSlider = document.getElementById('marThreshold');
+const marThresholdValue = document.getElementById('marThresholdValue');
+const yawnCooldownSlider = document.getElementById('yawnCooldown');
+const yawnCooldownValue = document.getElementById('yawnCooldownValue');
+const headDownThresholdSlider = document.getElementById('headDownThreshold');
+const headDownThresholdValue = document.getElementById('headDownThresholdValue');
+const headDownTimeSlider = document.getElementById('headDownTime');
+const headDownTimeValue = document.getElementById('headDownTimeValue');
+// === PERMINTAAN BARU: Elemen Slider Kepala Menoleh ===
+const headTurnThresholdSlider = document.getElementById('headTurnThreshold');
+const headTurnThresholdValue = document.getElementById('headTurnThresholdValue');
+const headTurnTimeSlider = document.getElementById('headTurnTime');
+const headTurnTimeValue = document.getElementById('headTurnTimeValue');
+// === PERMINTAAN BARU: Elemen Slider Wajah Hilang ===
+const faceLostTimeSlider = document.getElementById('faceLostTime');
+const faceLostTimeValue = document.getElementById('faceLostTimeValue');
+const saveSensitivityBtn = document.getElementById('saveSensitivity');
+// Update value displays on slider change
+earThresholdSlider.addEventListener('input', (e) => { earThresholdValue.textContent = e.target.value; });
+drowsyTimeSlider.addEventListener('input', (e) => { drowsyTimeValue.textContent = e.target.value; });
+marThresholdSlider.addEventListener('input', (e) => { marThresholdValue.textContent = e.target.value; });
+yawnCooldownSlider.addEventListener('input', (e) => { yawnCooldownValue.textContent = e.target.value; });
+headDownThresholdSlider.addEventListener('input', (e) => { headDownThresholdValue.textContent = e.target.value; });
+headDownTimeSlider.addEventListener('input', (e) => { headDownTimeValue.textContent = e.target.value; });
+// === PERMINTAAN BARU: Event Listener Slider Kepala Menoleh ===
+headTurnThresholdSlider.addEventListener('input', (e) => { headTurnThresholdValue.textContent = e.target.value; });
+headTurnTimeSlider.addEventListener('input', (e) => { headTurnTimeValue.textContent = e.target.value; });
+// === PERMINTAAN BARU: Event Listener Slider Wajah Hilang ===
+faceLostTimeSlider.addEventListener('input', (e) => { faceLostTimeValue.textContent = e.target.value; });
+// Save sensitivity settings
+saveSensitivityBtn.addEventListener('click', async () => {
+  earThreshold = parseFloat(earThresholdSlider.value);
+  drowsyTime = parseInt(drowsyTimeSlider.value);
+  marThreshold = parseFloat(marThresholdSlider.value);
+  yawnCooldown = parseInt(yawnCooldownSlider.value);
+  headDownThreshold = parseFloat(headDownThresholdSlider.value);
+  headDownTime = parseInt(headDownTimeSlider.value);
+  // === PERMINTAAN BARU: Simpan Nilai Kepala Menoleh ===
+  headTurnThreshold = parseFloat(headTurnThresholdSlider.value);
+  headTurnMinThreshold = 1 / headTurnThreshold; // Hitung nilai minimum
+  headTurnTime = parseInt(headTurnTimeSlider.value);
+  // === PERMINTAAN BARU: Simpan Nilai Wajah Hilang ===
+  faceLostTime = parseInt(faceLostTimeSlider.value);
+ 
+  saveUserData();
+  addGeneralLog('Sensitivity settings saved.');
+  showToast('Sensitivity settings saved successfully!', 'success');
+  // Kirim pengaturan ke semua chat ID terdaftar
+  const settingsText = `New Sensitivity Settings by ${currentUser}:\nEAR Threshold: ${earThreshold}\nDrowsy Time: ${drowsyTime} ms\nMAR Threshold: ${marThreshold}\nYawn Cooldown: ${yawnCooldown} ms\nHead Down Threshold: ${headDownThreshold}\nHead Down Time: ${headDownTime} ms\nHead Turn Threshold: ${headTurnThreshold.toFixed(2)} (Min: ${headTurnMinThreshold.toFixed(2)})\nHead Turn Time: ${headTurnTime} ms\nFace Lost Time: ${faceLostTime} ms`;
+  await sendTextToAllTelegram(settingsText);
+});
+let isLoginMode = true;
+toggleAuth.addEventListener('click', () => {
+  isLoginMode = !isLoginMode;
+  authTitle.textContent = isLoginMode ? 'Login' : 'Sign Up';
+  authBtn.textContent = isLoginMode ? 'Login' : 'Sign Up';
+  toggleAuth.textContent = isLoginMode ? "Don't have an account? Sign up here" : 'Already have an account? Login here';
+});
+authBtn.addEventListener('click', () => {
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value.trim();
+  if (!username || !password) {
+    showToast('Please enter username and password.', 'error');
+    return;
+  }
+  if (isLoginMode) {
+    // Login
+    if (users[username] && users[username].password === simpleHash(password)) {
+      currentUser = username;
+      loadUserData();
+      authContainer.style.display = 'none';
+      mainApp.style.display = 'block';
+      logoutBtn.style.display = 'block';
+      showToast(`Welcome, ${username}!`, 'success');
+      updateStartButtonState();
+      loadDailyReview();
+    } else {
+      showToast('Incorrect username or password.', 'error');
+    }
+  } else {
+    // Signup
+    if (users[username]) {
+      showToast('Username already exists.', 'error');
+    } else {
+      users[username] = {
+        password: simpleHash(password),
+        data: {
+          configs: [],
+          timezone: 'UTC',
+          logs: {
+            general: [],
+            drowsy: [],
+            yawn: []
+          },
+          sensitivity: {
+            earThreshold: 0.2,
+            drowsyTime: 1000,
+            marThreshold: 0.5,
+            yawnCooldown: 3000,
+            headDownThreshold: 1.5,
+            headDownTime: 3000,
+            // === PERMINTAAN BARU: Default Nilai Kepala Menoleh ===
+            headTurnThreshold: 1.8,
+            headTurnTime: 2000,
+            // === PERMINTAAN BARU: Default Nilai Wajah Hilang ===
+            faceLostTime: 3000
+          },
+          // === PERUBAHAN BARU: Struktur data kalibrasi ===
+          calibrationData: {
+            normal: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null },
+            eyesClosed: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null },
+            mouthOpen: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null },
+            headDown: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null }
+          }
+        }
+      };
+      saveUsers();
+      showToast('Account created successfully. Please login.', 'success');
+      toggleAuth.click(); // Switch to login
+    }
+  }
+});
+logoutBtn.addEventListener('click', () => {
+  saveUserData();
+  currentUser = null;
+  authContainer.style.display = 'block';
+  mainApp.style.display = 'none';
+  logoutBtn.style.display = 'none';
+  clearLogsUI();
+  showToast('Logout successful.', 'success');
+});
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash.toString();
+}
+function saveUsers() {
+  localStorage.setItem('users', JSON.stringify(users));
+}
+function loadUserData() {
+  configs = users[currentUser].data.configs;
+  selectedTimeZone = users[currentUser].data.timezone || 'UTC';
+  document.getElementById('timezoneSelect').value = selectedTimeZone;
+  // Load sensitivity settings
+  const sensitivityData = users[currentUser].data.sensitivity || {};
+  earThreshold = sensitivityData.earThreshold || 0.2;
+  drowsyTime = sensitivityData.drowsyTime || 1000;
+  marThreshold = sensitivityData.marThreshold || 0.5;
+  yawnCooldown = sensitivityData.yawnCooldown || 3000;
+  headDownThreshold = sensitivityData.headDownThreshold || 1.5;
+  headDownTime = sensitivityData.headDownTime || 3000;
+  // === PERMINTAAN BARU: Load Nilai Kepala Menoleh ===
+  headTurnThreshold = sensitivityData.headTurnThreshold || 1.8;
+  headTurnMinThreshold = 1 / headTurnThreshold; // Selalu hitung ulang
+  headTurnTime = sensitivityData.headTurnTime || 2000;
+  // === PERMINTAAN BARU: Load Nilai Wajah Hilang ===
+  faceLostTime = sensitivityData.faceLostTime || 3000;
+  // Update sliders
+  earThresholdSlider.value = earThreshold;
+  earThresholdValue.textContent = earThreshold;
+  drowsyTimeSlider.value = drowsyTime;
+  drowsyTimeValue.textContent = drowsyTime;
+  marThresholdSlider.value = marThreshold;
+  marThresholdValue.textContent = marThreshold;
+  yawnCooldownSlider.value = yawnCooldown;
+  yawnCooldownValue.textContent = yawnCooldown;
+  headDownThresholdSlider.value = headDownThreshold;
+  headDownThresholdValue.textContent = headDownThreshold;
+  headDownTimeSlider.value = headDownTime;
+  headDownTimeValue.textContent = headDownTime;
+  // === PERMINTAAN BARU: Update Slider Kepala Menoleh ===
+  headTurnThresholdSlider.value = headTurnThreshold;
+  headTurnThresholdValue.textContent = headTurnThreshold;
+  headTurnTimeSlider.value = headTurnTime;
+  headTurnTimeValue.textContent = headTurnTime;
+  // === PERMINTAAN BARU: Update Slider Wajah Hilang ===
+  faceLostTimeSlider.value = faceLostTime;
+  faceLostTimeValue.textContent = faceLostTime;
+  loadConfigs();
+  const logsData = users[currentUser].data.logs;
+  renderLogs('general', logsData.general);
+  renderLogs('drowsy', logsData.drowsy);
+  renderLogs('yawn', logsData.yawn);
+  // === PERUBAHAN: Load calibration data + backward compatibility ===
+  if (users[currentUser].data.calibrationData && Object.keys(users[currentUser].data.calibrationData).length > 0) {
+      calibrationData = users[currentUser].data.calibrationData;
+      // Memastikan data lama kompatibel dengan struktur baru
+      for (let key in calibrationData) {
+          if (!calibrationData[key].snapshot) calibrationData[key].snapshot = null;
+          if (!calibrationData[key].metrics) calibrationData[key].metrics = null;
+          // === BARU: Kompatibilitas untuk headTurn ===
+          if (!calibrationData[key].headTurn) calibrationData[key].headTurn = 0;
+          if (calibrationData[key].metrics && !calibrationData[key].metrics.headTurn) {
+              calibrationData[key].metrics.headTurn = 0;
+          }
+      }
+      showToast("Loaded previous calibration data.", "success");
+  } else {
+      // Inisialisasi struktur data kalibrasi baru
+      calibrationData = {
+          normal: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null },
+          eyesClosed: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null },
+          mouthOpen: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null },
+          headDown: { ear: 0, mar: 0, head: 0, headTurn: 0, snapshot: null, metrics: null }
+      };
+  }
+}
+function saveUserData() {
+    if (!currentUser || !users[currentUser]) return; // Safety check
+   
+    users[currentUser].data.configs = configs;
+    users[currentUser].data.timezone = selectedTimeZone;
+    users[currentUser].data.logs.general = getLogsFromUI('general');
+    users[currentUser].data.logs.drowsy = getLogsFromUI('drowsy');
+    users[currentUser].data.logs.yawn = getLogsFromUI('yawn');
+    users[currentUser].data.sensitivity = {
+        earThreshold,
+        drowsyTime,
+        marThreshold,
+        yawnCooldown,
+        headDownThreshold,
+        headDownTime,
+        // === PERMINTAAN BARU: Simpan Nilai Kepala Menoleh ===
+        headTurnThreshold,
+        headTurnTime,
+        // === PERMINTAAN BARU: Simpan Nilai Wajah Hilang ===
+        faceLostTime
+    };
+    // === NEW: Save calibration data ===
+    users[currentUser].data.calibrationData = calibrationData;
+    saveUsers();
+}
+function getLogsFromUI(type) {
+  const content = document.getElementById(type === 'general' ? 'logContent' : type === 'drowsy' ? 'drowsyLogContent' : 'yawnLogContent');
+  return Array.from(content.children).map(div => div.textContent);
+}
+function renderLogs(type, logsArray) {
+  const content = document.getElementById(type === 'general' ? 'logContent' : type === 'drowsy' ? 'drowsyLogContent' : 'yawnLogContent');
+  content.innerHTML = '';
+  logsArray.forEach(log => {
+    const entry = document.createElement("div");
+    entry.textContent = log;
+    content.appendChild(entry); // Append for chronological order
+  });
+}
+function clearLogsUI() {
+  document.getElementById('logContent').innerHTML = '';
+  document.getElementById('drowsyLogContent').innerHTML = '';
+  document.getElementById('yawnLogContent').innerHTML = '';
+}
+// === Update Start Button State ===
+function updateStartButtonState() {
+  const startBtn = document.getElementById('startBtn');
+  if (configs.length === 0) {
+    startBtn.disabled = true;
+    showToast('Add at least one Telegram configuration to run the camera.', 'error');
+  } else {
+    startBtn.disabled = false;
+  }
+}
+// Tab switching
+const tabButtons = document.querySelectorAll('.tab-button');
+const tabContents = document.querySelectorAll('.tab-content');
+tabButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    // === Logic to stop calibration camera if switching tabs ===
+    const oldTabId = document.querySelector('.tab-button.active').dataset.tab + 'Tab';
+    if (oldTabId === 'calibrationTab' && calibRunning) {
+        stopCalibCamera();
+    }
+    // === End logic ===
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+    button.classList.add('active');
+    const tabId = button.dataset.tab + 'Tab';
+    document.getElementById(tabId).classList.add('active');
+    // === PERUBAHAN BARU: Memuat tabel DAN grafik saat tab diklik ===
+    if (tabId === 'dailyReviewTab') {
+      loadDailyReview(); // Ini sekarang juga me-render grafik
+      loadDailyReviewTelegramTable(); // Ini memuat tabel config baru
+    }
+  });
+});
+// === TIMEZONE CONFIGURATION ===
+const timezoneSelect = document.getElementById('timezoneSelect');
+const saveTimezoneBtn = document.getElementById('saveTimezone');
+saveTimezoneBtn.addEventListener('click', () => {
+  selectedTimeZone = timezoneSelect.value;
+  saveUserData();
+  addGeneralLog('Time zone changed to ' + selectedTimeZone + '.');
+  showToast('Time zone saved successfully!', 'success');
+});
+// === TELEGRAM CONFIGURATION ===
+let configs = []; // Loaded per user
+const ownerNameInput = document.getElementById("ownerName");
+const botTokenInput = document.getElementById("botToken");
+const chatIdInput = document.getElementById("chatId");
+const saveConfigBtn = document.getElementById("saveConfig");
+const cancelConfigBtn = document.getElementById("cancelConfig");
+const editIndexInput = document.getElementById("editIndex");
+const configTableBody = document.getElementById("configTableBody");
+saveConfigBtn.addEventListener("click", () => {
+  const ownerName = ownerNameInput.value.trim();
+  const botToken = botTokenInput.value.trim();
+  const chatId = chatIdInput.value.trim();
+  const editIndex = parseInt(editIndexInput.value);
+  if (ownerName && botToken && chatId) {
+    if (editIndex === -1) {
+      // Add new
+      configs.push({ ownerName, botToken, chatId });
+    } else {
+      // Edit existing
+      configs[editIndex] = { ownerName, botToken, chatId };
+    }
+    saveUserData();
+    addGeneralLog("Telegram configuration saved.");
+    loadConfigs();
+    clearInputs();
+    showToast("Configuration saved successfully!", "success");
+    updateStartButtonState();
+  } else {
+    showToast("Please fill all fields first.", "error");
+  }
+});
+function loadConfigs() {
+  configTableBody.innerHTML = "";
+  configs.forEach((config, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${config.ownerName}</td>
+      <td>${config.botToken.substring(0, 10)}...</td>
+      <td>${config.chatId}</td>
+      <td>
+        <button onclick="editConfig(${index})"><i class="fas fa-edit"></i> Edit</button>
+        <button onclick="deleteConfig(${index})"><i class="fas fa-trash"></i> Delete</button>
+      </td>
+    `;
+    configTableBody.appendChild(row);
+  });
+}
+function editConfig(index) {
+  const config = configs[index];
+  ownerNameInput.value = config.ownerName;
+  botTokenInput.value = config.botToken;
+  chatIdInput.value = config.chatId;
+  editIndexInput.value = index;
+}
+function deleteConfig(index) {
+  configs.splice(index, 1);
+  saveUserData();
+  loadConfigs();
+  showToast("Configuration deleted.", "success");
+  updateStartButtonState();
+}
+function clearInputs() {
+  ownerNameInput.value = "";
+  botTokenInput.value = "";
+  chatIdInput.value = "";
+  editIndexInput.value = -1;
+}
+// ==========================================================
+// === FUNGSI INI MENGANDUNG PERBAIKAN BUG ===
+// ==========================================================
+function parseLogTimestamp(log) {
+  const match = log.match(/\[(.*?)\]/);
+  if (!match) return null;
+ 
+  const timestampStr = match[1];
+  const [datePart, timePart] = timestampStr.split(', ');
+  if (!datePart || !timePart) return null;
+  // === PERBAIKAN BUG ===
+  // Format 'en-US' adalah 'MM/DD/YYYY'
+  const [month, day, year] = datePart.split('/').map(Number);
+  // Cek apakah tanggal valid setelah di-split
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+  // === AKHIR PERBAIKAN ===
+  let correctedTime = timePart.replace(/\./g, ':');
+ 
+  const parts = correctedTime.split(' ');
+  let timeStr, ampm = null;
+ 
+  if (parts.length === 2) {
+    timeStr = parts[0];
+    ampm = parts[1];
+  } else {
+    timeStr = parts[0];
+  }
+  let [hours, minutes, seconds] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+  if (ampm) {
+    const upperAmpm = ampm.toUpperCase();
+    if (upperAmpm === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (upperAmpm === 'AM' && hours === 12) {
+      hours = 0;
+    }
+  }
+  const hourStr = hours.toString().padStart(2, '0');
+  const minStr = minutes.toString().padStart(2, '0');
+  const secStr = seconds.toString().padStart(2, '0');
+ 
+  // Format ISO String (YYYY-MM-DD) sekarang akan benar
+  const isoString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hourStr}:${minStr}:${secStr}`;
+ 
+  const parsedDate = new Date(isoString);
+  if (isNaN(parsedDate.getTime())) return null;
+  return parsedDate;
+}
+function getDateFromLog(log) {
+  const parsedDate = parseLogTimestamp(log);
+  if (!parsedDate) return null;
+  return parsedDate.toLocaleDateString('en-US', { timeZone: selectedTimeZone });
+}
+// === PERUBAHAN BARU: Fungsi direvisi untuk menyertakan rendering Grafik ===
+let focusChart = null, fatigueChart = null, yawnChart = null;
+
+function loadDailyReview() {
+  const generalLogs = getLogsFromUI('general');
+  const drowsyLogs = getLogsFromUI('drowsy');
+  const yawnLogs = getLogsFromUI('yawn');
+  const dailyData = {};
+
+  // Process general logs (focus hours)
+  generalLogs.forEach(log => {
+    const matchStop = log.match(/\[(.*?)\] .*focus duration: ([\d.]+) hours/);
+    if (matchStop) {
+      const duration = parseFloat(matchStop[2]);
+      const date = getDateFromLog(log);
+      if (date) {
+        if (!dailyData[date]) dailyData[date] = { hours: 0, drowsy: 0, yawn: 0 };
+        dailyData[date].hours += duration;
+      }
+    }
+  });
+
+  // Process drowsy logs
+  drowsyLogs.forEach(log => {
+    const date = getDateFromLog(log);
+    if (date) {
+      if (!dailyData[date]) dailyData[date] = { hours: 0, drowsy: 0, yawn: 0 };
+      dailyData[date].drowsy++;
+    }
+  });
+
+  // Process yawn logs
+  yawnLogs.forEach(log => {
+    const date = getDateFromLog(log);
+    if (date) {
+      if (!dailyData[date]) dailyData[date] = { hours: 0, drowsy: 0, yawn: 0 };
+      dailyData[date].yawn++;
+    }
+  });
+
+  const tableBody = document.getElementById('dailyReviewTableBody');
+  tableBody.innerHTML = '';
+  const sortedDates = Object.keys(dailyData).sort((a, b) => new Date(a) - new Date(b));
+
+  sortedDates.forEach(date => {
+    if (date === 'Invalid Date' || date === 'null') return;
+    const data = dailyData[date];
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${date}</td>
+      <td>${data.hours.toFixed(2)} hours</td>
+      <td>${data.drowsy}</td>
+      <td>${data.yawn}</td>
+    `;
+    tableBody.appendChild(row);
+  });
+
+  // === GRAFIK TERPISAH ===
+  const createChart = (ctx, label, data, color) => {
+    return new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sortedDates,
+        datasets: [{
+          label: label,
+          data: data,
+          backgroundColor: color + '0.6)',
+          borderColor: color + '1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  };
+
+  // Destroy old charts
+  [focusChart, fatigueChart, yawnChart].forEach(chart => chart?.destroy());
+
+  focusChart = createChart(
+    document.getElementById('focusChart').getContext('2d'),
+    'Focus Hours', sortedDates.map(d => dailyData[d].hours),
+    'rgba(54, 162, 235, '
+  );
+  fatigueChart = createChart(
+    document.getElementById('fatigueChart').getContext('2d'),
+    'Fatigue Count', sortedDates.map(d => dailyData[d].drowsy),
+    'rgba(255, 99, 132, '
+  );
+  yawnChart = createChart(
+    document.getElementById('yawnChart').getContext('2d'),
+    'Yawn Count', sortedDates.map(d => dailyData[d].yawn),
+    'rgba(75, 192, 192, '
+  );
+}
+function loadDailyReviewTelegramTable() {
+    const tableBody = document.getElementById("reportConfigTableBody");
+    tableBody.innerHTML = "";
+    if (configs.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="3">No registered users found. Add users in the Configuration tab.</td></tr>';
+        return;
+    }
+   
+    configs.forEach((config, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${config.ownerName}</td>
+          <td>${config.chatId}</td>
+          <td>
+            <button onclick="sendReportToUser(${index}, 'today')" title="Send Today's Report">
+                <i class="fas fa-calendar-day"></i> Today
+            </button>
+            <button onclick="sendReportToUser(${index}, 'month')" title="Send This Month's Report">
+                <i class="fas fa-calendar-alt"></i> Month
+            </button>
+            <button onclick="sendReportToUser(${index}, 'year')" title="Send This Year's Report">
+                <i class="fas fa-calendar-week"></i> Year
+            </button>
+          </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+// === PERUBAHAN BARU: Menghasilkan teks laporan berdasarkan periode ===
+function generateReportText(period) {
+    const tableRows = document.querySelectorAll('#dailyReviewTable tbody tr');
+    if (tableRows.length === 0) {
+        return "No data to report yet.";
+    }
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-US', { timeZone: selectedTimeZone });
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+   
+    let filteredRows = [];
+    tableRows.forEach(row => {
+        const dateCell = row.querySelectorAll('td')[0].textContent;
+        // Gunakan new Date() untuk parsing tanggal yang konsisten
+        const rowDate = new Date(dateCell);
+        if (isNaN(rowDate.getTime())) return; // Lewati jika tanggal tidak valid
+        if (period === 'today' && dateCell === todayStr) {
+            filteredRows.push(row);
+        } else if (period === 'month' && rowDate.getMonth() === currentMonth && rowDate.getFullYear() === currentYear) {
+            filteredRows.push(row);
+        } else if (period === 'year' && rowDate.getFullYear() === currentYear) {
+            filteredRows.push(row);
+        }
+    });
+    if (filteredRows.length === 0) {
+        return `No data found for this ${period}.`;
+    }
+    let reportText = `Focus Report (${period.toUpperCase()})\nSent by: ${currentUser}\n\n`;
+    let totalHours = 0;
+    let totalDrowsy = 0;
+    let totalYawn = 0;
+    filteredRows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const hours = parseFloat(cells[1].textContent) || 0;
+        const drowsy = parseInt(cells[2].textContent) || 0;
+        const yawn = parseInt(cells[3].textContent) || 0;
+        // Hanya tambahkan detail harian jika laporannya bukan harian
+        if (period !== 'today') {
+            reportText += `Date: ${cells[0].textContent}\n`;
+            reportText += ` - Focus: ${hours.toFixed(2)} hours\n`;
+            reportText += ` - Fatigue/Loss Focus: ${drowsy}\n`;
+            reportText += ` - Yawn/Laugh: ${yawn}\n\n`;
+        }
+        totalHours += hours;
+        totalDrowsy += drowsy;
+        totalYawn += yawn;
+    });
+    // Tambahkan Total Summary
+    reportText += `--- TOTAL SUMMARY (${period.toUpperCase()}) ---\n`;
+    reportText += `Total Focus: ${totalHours.toFixed(2)} hours\n`;
+    reportText += `Total Fatigue/Loss Focus: ${totalDrowsy}\n`;
+    reportText += `Total Yawn/Laugh: ${totalYawn}\n`;
+    return reportText;
+}
+// === PERUBAHAN BARU: Dieksekusi oleh 3 tombol baru ===
+async function sendReportToUser(index, period) {
+    const config = configs[index];
+    if (!config) {
+        showToast("Configuration not found.", "error");
+        return;
+    }
+   
+    const botToken = config.botToken;
+    const chatId = config.chatId;
+    const reportText = generateReportText(period); // Dapatkan teks yang difilter
+   
+    const formData = new FormData();
+    formData.append("chat_id", chatId);
+    formData.append("text", reportText);
+    showToast(`Sending ${period} report to ${config.ownerName}...`, "success");
+    try {
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            body: formData
+        });
+        if (response.ok) {
+            showToast('Report sent successfully!', 'success');
+            addGeneralLog(`${period.toUpperCase()} report sent to ${config.ownerName}.`);
+        } else {
+            const err = await response.json();
+            showToast(`Failed to send report: ${err.description}`, 'error');
+        }
+    } catch (err) {
+        showToast(`Network error: ${err.message}`, 'error');
+    }
+}
+// ==========================================================
+// === START: CALIBRATION LOGIC (PERUBAHAN BESAR) ===
+// ==========================================================
+const calibVideo = document.getElementById("calibVideo");
+const calibCanvas = document.getElementById("calibCanvas");
+const calibCtx = calibCanvas.getContext("2d");
+const calibStatus = document.getElementById("calibStatus");
+const calibVideoContainer = document.getElementById("calibVideoContainer");
+const calibSteps = document.getElementById("calibSteps");
+const calibStartCameraBtn = document.getElementById("startCalibCamera");
+const calibStopCameraBtn = document.getElementById("stopCalibCamera"); // New stop button
+const calibCountdownOverlay = document.getElementById("calibCountdownOverlay");
+calibFaceMesh.onResults(onCalibResults); // Renamed function
+let calibRunning = false;
+let calibCurrentStep = null;
+let calibMeasurements = []; // Array to collect 15 frames
+const CALIB_MEASUREMENT_COUNT = 15; // Collect 15 frames
+let calibFrameCount = 0;
+let calibCollecting = false;
+// === PERUBAHAN BARU: Variabel untuk menyimpan frame terakhir ===
+let lastCalibFrame = null;
+let lastCalibMetrics = null;
+// === PERUBAHAN: Variabel alur wizard ===
+let calibFlowStep = 0; // 0=Normal, 1=EyesClosed, 2=MouthOpen, 3=HeadDown, 4=Summary, 5=Done
+// Calibration data storage (this variable is loaded in loadUserData)
+let calibrationData = {}; // Diinisialisasi saat loadUserData
+async function startCalibCamera() {
+    try {
+        calibStatus.textContent = "Requesting camera access...";
+        calibStatus.style.display = "block";
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+       
+        calibVideo.onloadedmetadata = () => {
+            calibCanvas.width = calibVideo.videoWidth;
+            calibCanvas.height = calibVideo.videoWidth / (3.2 / 3.3); // Match aspect ratio
+            calibStatus.textContent = "Camera active, detecting face...";
+        };
+       
+        calibVideo.srcObject = stream;
+        await calibVideo.play();
+       
+        calibRunning = true;
+        calibStartCameraBtn.style.display = "none";
+        calibStopCameraBtn.style.display = "inline-block"; // Show stop button
+        calibVideoContainer.style.display = "block";
+        calibSteps.style.display = "block";
+       
+        showToast("Calibration camera started!", "success");
+        calibDetectLoop();
+        // === PERUBAHAN: Mulai alur wizard ===
+        calibFlowStep = 0; // Reset alur
+        renderCalibStep(calibFlowStep); // Tampilkan langkah pertama
+    } catch (err) {
+        calibStatus.textContent = "Failed to access camera: " + err.message;
+        showToast("Failed to access camera.", "error");
+    }
+}
+function stopCalibCamera() {
+    if (!calibRunning) return;
+    calibRunning = false;
+   
+    if (calibVideo.srcObject) {
+        calibVideo.srcObject.getTracks().forEach(track => track.stop());
+        calibVideo.srcObject = null;
+    }
+   
+    calibStatus.textContent = "Calibration camera stopped.";
+    calibStatus.style.display = "none";
+    calibStartCameraBtn.style.display = "inline-block";
+    calibStopCameraBtn.style.display = "none";
+    calibVideoContainer.style.display = "none";
+    calibSteps.style.display = "none";
+    // === PERUBAHAN: Bersihkan kotak wizard ===
+    document.getElementById('calibStepContainer').innerHTML = "";
+    calibCtx.clearRect(0, 0, calibCanvas.width, calibCanvas.height);
+   
+    showToast("Calibration camera stopped.", "success");
+}
+async function calibDetectLoop() {
+    if (!calibRunning) return;
+    await calibFaceMesh.send({ image: calibVideo });
+    requestAnimationFrame(calibDetectLoop);
+}
+// =================================================================
+// === FUNGSI INI TELAH DIPERBARUI TOTAL UNTUK MEMPERBAIKI "GEPENG" ===
+// =================================================================
+function onCalibResults(results) {
+    calibCtx.save();
+    calibCtx.clearRect(0, 0, calibCanvas.width, calibCanvas.height);
+   
+    const calibImg = results.image; // Ini adalah sumber (misal 640x480)
+    // === LOGIKA BARU UNTUK 'object-fit: cover' (FIX GEPENG) ===
+    const videoAspect = calibImg.width / calibImg.height; // rasio asli (misal 1.33)
+    const canvasAspect = calibCanvas.width / calibCanvas.height; // rasio target (misal 0.97)
+    let sWidth, sHeight, sx, sy;
+    if (videoAspect > canvasAspect) {
+        // Gambar lebih lebar dari canvas (crop kiri/kanan)
+        sHeight = calibImg.height;
+        sWidth = calibImg.height * canvasAspect;
+        sx = (calibImg.width - sWidth) / 2;
+        sy = 0;
+    } else {
+        // Gambar lebih tinggi dari canvas (crop atas/bawah)
+        sWidth = calibImg.width;
+        sHeight = calibImg.width / canvasAspect;
+        sx = 0;
+        sy = (calibImg.height - sHeight) / 2;
+    }
+    // Gambar ke canvas dengan cropping (9 argumen), BUKAN 5
+    calibCtx.drawImage(calibImg, sx, sy, sWidth, sHeight, 0, 0, calibCanvas.width, calibCanvas.height);
+    // === AKHIR LOGIKA BARU ===
+   
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        // Gunakan 'lm' (ASLI) untuk KALKULASI
+        const lm = results.multiFaceLandmarks[0];
+       
+        // --- PERBAIKAN BUG LANJUTAN UNTUK LANDMARK ---
+        // Karena kita 'crop' gambar, koordinat landmark juga harus disesuaikan untuk DIGAMBAR
+        const norm_sx = sx / calibImg.width;
+        const norm_sy = sy / calibImg.height;
+        const norm_sWidth = sWidth / calibImg.width;
+        const norm_sHeight = sHeight / calibImg.height;
+     
+        const transformedLm = lm.map(point => ({
+          x: (point.x - norm_sx) / norm_sWidth,
+          y: (point.y - norm_sy) / norm_sHeight,
+          z: point.z
+        }));
+        // --- AKHIR PERBAIKAN LANDMARK ---
+        // 1. KALKULASI (menggunakan landmark asli 'lm' dan sumber 'calibImg')
+        const leftEye = LEFT_EYE_INDEX.map(i => lm[i]);
+        const rightEye = RIGHT_EYE_INDEX.map(i => lm[i]);
+        const mouth = MOUTH_INDEX.map(i => lm[i]);
+        // === PERMINTAAN BARU: Landmark Kepala Menoleh ===
+        const noseLm = lm[NOSE_TIP];
+        const leftCheekLm = lm[LEFT_CHEEK];
+        const rightCheekLm = lm[RIGHT_CHEEK];
+       
+        const ear = (calcEAR(leftEye, calibImg) + calcEAR(rightEye, calibImg)) / 2.0;
+        const mar = calcMAR(mouth, calibImg);
+        const head = calcHeadDown(noseLm, lm[FOREHEAD], lm[CHIN], calibImg);
+        // === PERMINTAAN BARU: Hitung Rasio Kepala Menoleh ===
+        const headTurn = calcHeadTurn(noseLm, leftCheekLm, rightCheekLm, calibImg);
+       
+        // 2. MENGGAMBAR (menggunakan landmark 'transformedLm' yang sudah disesuaikan)
+       
+        // Gambar kotak biru
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        transformedLm.forEach(point => {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        });
+       
+        calibCtx.strokeStyle = 'blue';
+        calibCtx.lineWidth = 2;
+        calibCtx.strokeRect(minX * calibCanvas.width, minY * calibCanvas.height, (maxX - minX) * calibCanvas.width, (maxY - minY) * calibCanvas.height);
+        // Gambar mesh
+        drawConnectors(calibCtx, transformedLm, FaceMesh.FACEMESH_LEFT_EYE, { color: "#00FF00" });
+        drawConnectors(calibCtx, transformedLm, FaceMesh.FACEMESH_RIGHT_EYE, { color: "#00FF00" });
+        drawConnectors(calibCtx, transformedLm, FaceMesh.FACEMESH_LIPS, { color: "#FFA500" });
+        // === PERMINTAAN BARU: Gambar Iris ===
+        drawConnectors(calibCtx, transformedLm, FaceMesh.FACEMESH_LEFT_IRIS, { color: "#FF0000" });
+        drawConnectors(calibCtx, transformedLm, FaceMesh.FACEMESH_RIGHT_IRIS, { color: "#FF0000" });
+       
+        // Tampilkan status (menggunakan nilai kalkulasi asli)
+        // === PERMINTAAN BARU: Tampilkan Status 'Turn' ===
+        calibStatus.textContent = `EAR: ${ear.toFixed(3)} | MAR: ${mar.toFixed(3)} | Head: ${head.toFixed(3)} | Turn: ${headTurn.toFixed(3)}`;
+       
+        // Kumpulkan data untuk kalibrasi
+        if (calibCollecting) {
+            // === PERMINTAAN BARU: Simpan Metrik 'headTurn' ===
+            calibMeasurements.push({ ear, mar, head, headTurn });
+            calibFrameCount++;
+           
+            // === PERUBAHAN BARU: Simpan frame & metrik terakhir ===
+            lastCalibFrame = results.image; // Simpan gambar (ImageBitmap)
+            lastCalibMetrics = { ear, mar, head, headTurn }; // Simpan semua metrik
+           
+            if (calibFrameCount >= CALIB_MEASUREMENT_COUNT) {
+                calibCollecting = false;
+                calibPlayBeep(400); // End beep
+                calibCalculateAverage(calibCurrentStep);
+                calibCurrentStep = null;
+                calibFrameCount = 0;
+            }
+        }
+    } else {
+        calibStatus.textContent = "Face not detected";
+    }
+    calibCtx.restore();
+}
+// =================================================================
+// === AKHIR DARI FUNGSI YANG DIPERBAIKI ===
+// =================================================================
+// === PERUBAHAN: Fungsi render UI wizard (logika snapshot baru) ===
+function renderCalibStep(stepIndex) {
+    const container = document.getElementById('calibStepContainer');
+    let htmlContent = '';
+    let snapshotHtml = ''; // Variabel untuk menyimpan HTML snapshot
+    // Fungsi helper untuk membuat blok HTML snapshot
+    // === PERMINTAAN BARU: Update Snapshot HTML untuk 'Turn' ===
+    const createSnapshotHtml = (stepData, title) => {
+        if (!stepData || !stepData.snapshot) return '';
+        const metrics = stepData.metrics; // Ambil metrik dari frame terakhir
+        if (!metrics) return ''; // Pengaman
+        return `
+        <div class="calib-snapshot">
+            <h4>${title}:</h4>
+            <img src="${stepData.snapshot}" alt="${title} Snapshot">
+            <p>EAR: ${metrics.ear.toFixed(3)}, MAR: ${metrics.mar.toFixed(3)}, Head: ${metrics.head.toFixed(3)}, Turn: ${metrics.headTurn.toFixed(3)}</p>
+        </div>`;
+    };
+    switch (stepIndex) {
+        case 0: // Step 1: Normal
+            htmlContent = `
+                <div class="step">
+                    <h3>Step 1: Normal/Focus Expression</h3>
+                    <p>Prepare for normal/focus calibration. After beep, maintain neutral expression until next beep.</p>
+                    <button id="calibrateNormal">Start Normal Calibration</button>
+                    <div class="result" id="resultNormal"></div>
+                </div>
+            `;
+            container.innerHTML = htmlContent;
+            document.getElementById("calibrateNormal").addEventListener("click", () => {
+                showToast("Preparing normal calibration... Countdown starts.", "success");
+                calibStartCountdown("normal");
+            });
+            break;
+        case 1: // Step 2: Eyes Closed
+            snapshotHtml = createSnapshotHtml(calibrationData.normal, "Last Frame (Normal)");
+            htmlContent = snapshotHtml + `
+                <div class="step">
+                    <h3>Step 2: Closing Eyes</h3>
+                    <p>Prepare to close eyes. After beep, close eyes tightly and open them after next beep.</p>
+                    <button id="calibrateEyesClosed">Start Eyes Closed Calibration</button>
+                    <div class="result" id="resultEyesClosed"></div>
+                </div>
+            `;
+            container.innerHTML = htmlContent;
+            document.getElementById("calibrateEyesClosed").addEventListener("click", () => {
+                showToast("Preparing eyes closed calibration... Countdown starts.", "success");
+                calibStartCountdown("eyesClosed");
+            });
+            break;
+        case 2: // Step 3: Mouth Open
+            snapshotHtml = createSnapshotHtml(calibrationData.eyesClosed, "Last Frame (Eyes Closed)");
+            htmlContent = snapshotHtml + `
+                <div class="step">
+                    <h3>Step 3: Opening Mouth</h3>
+                    <p>Prepare to open mouth. After beep, open mouth wide and close it after next beep.</p>
+                    <button id="calibrateMouthOpen">Start Mouth Open Calibration</button>
+                    <div class="result" id="resultMouthOpen"></div>
+                </div>
+            `;
+            container.innerHTML = htmlContent;
+            document.getElementById("calibrateMouthOpen").addEventListener("click", () => {
+                showToast("Preparing mouth open calibration... Countdown starts.", "success");
+                calibStartCountdown("mouthOpen");
+            });
+            break;
+        case 3: // Step 4: Head Down
+            snapshotHtml = createSnapshotHtml(calibrationData.mouthOpen, "Last Frame (Mouth Open)");
+            htmlContent = snapshotHtml + `
+                <div class="step">
+                    <h3>Step 4: Bowing Down (Head Down)</h3>
+                    <p>Prepare to bow head. After beep, lower head and raise it after next beep.</p>
+                    <button id="calibrateHeadDown">Start Head Down Calibration</button>
+                    <div class="result" id="resultHeadDown"></div>
+                </div>
+            `;
+            container.innerHTML = htmlContent;
+            document.getElementById("calibrateHeadDown").addEventListener("click", () => {
+                showToast("Preparing head down calibration... Countdown starts.", "success");
+                calibStartCountdown("headDown");
+            });
+            break;
+       
+        case 4: // Step 5: Summary
+            // Ambil snapshot terakhir (Head Down)
+            snapshotHtml = createSnapshotHtml(calibrationData.headDown, "Last Frame (Head Down)");
+            const { normal, eyesClosed, mouthOpen, headDown } = calibrationData;
+           
+            htmlContent = snapshotHtml + `
+                <div class="step">
+                    <h3>Step 5: Calibration Complete!</h3>
+                    <p>Here is a summary of your averaged values and the last frame captured for each step:</p>
+                    <ul>
+                        <li><strong>Normal (Avg):</strong> EAR: ${normal.ear.toFixed(3)}, MAR: ${normal.mar.toFixed(3)}, Head: ${normal.head.toFixed(3)}, Turn: ${normal.headTurn.toFixed(3)}</li>
+                        <li><strong>Eyes Closed (Avg):</strong> EAR: ${eyesClosed.ear.toFixed(3)}</li>
+                        <li><strong>Mouth Open (Avg):</strong> MAR: ${mouthOpen.mar.toFixed(3)}</li>
+                        <li><strong>Head Down (Avg):</strong> Head: ${headDown.head.toFixed(3)}</li>
+                    </ul>
+                   
+                    ${createSnapshotHtml(normal, 'Review: Last Frame (Normal)')}
+                    ${createSnapshotHtml(eyesClosed, 'Review: Last Frame (Eyes Closed)')}
+                    ${createSnapshotHtml(mouthOpen, 'Review: Last Frame (Mouth Open)')}
+                   
+                    <p style="margin-top: 20px;">Click below to calculate and apply these new thresholds to the Monitoring tab.</p>
+                    <button id="saveCalibration" style="width: 100%;"><i class="fas fa-save"></i> Save Calibration & Suggest Thresholds</button>
+                    <div id="suggestedThresholds" style="margin-top: 20px; font-weight: bold;"></div>
+                </div>
+            `;
+            container.innerHTML = htmlContent;
+            document.getElementById("saveCalibration").addEventListener("click", handleSaveCalibration);
+            break;
+       
+        case 5: // Step 6: Done
+            htmlContent = `
+                <div class="step">
+                    <h3>All Set!</h3>
+                    <p>Your new thresholds have been calculated, saved to your profile, and applied to the sliders in the <strong>Monitor</strong> tab.</p>
+                    <p>You can now stop the calibration camera or run the calibration again.</p>
+                    <button id="restartCalibration" style="width: 100%; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);"><i class="fas fa-redo"></i> Run Calibration Again</button>
+                </div>
+            `;
+            container.innerHTML = htmlContent;
+            document.getElementById("restartCalibration").addEventListener("click", () => {
+                calibFlowStep = 0;
+                renderCalibStep(calibFlowStep);
+            });
+            break;
+    }
+}
+// === PERUBAHAN: Fungsi ini sekarang juga memproses snapshot ===
+function calibCalculateAverage(step) {
+    const avgEar = calibMeasurements.reduce((sum, m) => sum + m.ear, 0) / calibMeasurements.length;
+    const avgMar = calibMeasurements.reduce((sum, m) => sum + m.mar, 0) / calibMeasurements.length;
+    const avgHead = calibMeasurements.reduce((sum, m) => sum + m.head, 0) / calibMeasurements.length;
+    // === PERMINTAAN BARU: Hitung Rata-rata 'headTurn' ===
+    const avgHeadTurn = calibMeasurements.reduce((sum, m) => sum + m.headTurn, 0) / calibMeasurements.length;
+   
+    // Simpan nilai rata-rata
+    calibrationData[step].ear = avgEar;
+    calibrationData[step].mar = avgMar;
+    calibrationData[step].head = avgHead;
+    calibrationData[step].headTurn = avgHeadTurn; // Simpan
+   
+    // === PERUBAHAN BARU: Proses dan simpan snapshot ===
+    if (lastCalibFrame && lastCalibMetrics) {
+        const snapshotCanvas = document.createElement('canvas');
+        const snapshotCtx = snapshotCanvas.getContext('2d');
+       
+        snapshotCanvas.width = lastCalibFrame.width;
+        snapshotCanvas.height = lastCalibFrame.height;
+       
+        // Gambar frame terakhir ke canvas sementara
+        snapshotCtx.drawImage(lastCalibFrame, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+       
+        const snapshotDataUrl = snapshotCanvas.toDataURL('image/png');
+        calibrationData[step].snapshot = snapshotDataUrl; // Simpan data URL
+        calibrationData[step].metrics = { ...lastCalibMetrics }; // Simpan metrik frame terakhir
+       
+        // Bersihkan variabel global
+        lastCalibFrame = null;
+        lastCalibMetrics = null;
+    }
+    // === AKHIR PERUBAHAN ===
+    // Tampilkan hasil di div result SEMENTARA sebelum UI berganti
+    const resultDiv = document.getElementById(`result${step.charAt(0).toUpperCase() + step.slice(1)}`);
+    if(resultDiv) {
+        // === PERMINTAAN BARU: Tampilkan 'Turn' di Result ===
+        resultDiv.textContent = `Average (15 frames) - EAR: ${avgEar.toFixed(3)}, MAR: ${avgMar.toFixed(3)}, Head: ${avgHead.toFixed(3)}, Turn: ${avgHeadTurn.toFixed(3)}`;
+    }
+   
+    showToast(`Calibration for ${step} completed!`, "success");
+    calibMeasurements = []; // Reset for next step
+    // === PERUBAHAN: Maju ke langkah wizard berikutnya ===
+    calibFlowStep++;
+    renderCalibStep(calibFlowStep);
+}
+function calibStartCountdown(step) {
+    calibCurrentStep = step;
+    calibMeasurements = [];
+    calibFrameCount = 0;
+    calibCollecting = false;
+   
+    // Matikan tombol saat ini untuk mencegah klik ganda
+    const currentButton = document.getElementById(`calibrate${step.charAt(0).toUpperCase() + step.slice(1)}`);
+    if(currentButton) currentButton.disabled = true;
+    calibCountdownOverlay.style.display = "flex";
+    let count = 3;
+    calibCountdownOverlay.textContent = count;
+   
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            calibCountdownOverlay.textContent = count;
+        } else {
+            clearInterval(interval);
+            calibCountdownOverlay.style.display = "none";
+            calibPlayBeep(700); // Start beep
+            calibCollecting = true; // Start collecting 15 frames
+        }
+    }, 1000);
+}
+function calibPlayBeep(frequency) {
+    const audioCtx = new AudioContext();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = frequency;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    setTimeout(() => { osc.stop(); audioCtx.close(); }, 400);
+}
+// === PERUBAHAN: Logika tombol simpan dipindah ke fungsi terpisah ===
+function handleSaveCalibration() {
+    // 1. Calculate suggested thresholds
+    const suggestedEarThreshold = (calibrationData.normal.ear + calibrationData.eyesClosed.ear) / 2;
+    const suggestedMarThreshold = (calibrationData.normal.mar + calibrationData.mouthOpen.mar) / 2;
+    const suggestedHeadThreshold = (calibrationData.normal.head + calibrationData.headDown.head) / 2;
+    // Catatan: HeadTurn tidak disarankan secara otomatis karena memerlukan 2 langkah (kiri & kanan)
+    // yang tidak ada dalam wizard. Pengguna harus mengaturnya secara manual.
+    // 2. Update the main app's global variables
+    earThreshold = parseFloat(suggestedEarThreshold.toFixed(2));
+    marThreshold = parseFloat(suggestedMarThreshold.toFixed(2));
+    headDownThreshold = parseFloat(suggestedHeadThreshold.toFixed(2));
+    // 3. Update the main app's sliders
+    earThresholdSlider.value = earThreshold;
+    marThresholdSlider.value = marThreshold;
+    headDownThresholdSlider.value = headDownThreshold;
+    // 4. Update the main app's slider value displays
+    earThresholdValue.textContent = earThreshold;
+    marThresholdValue.textContent = marThreshold;
+    headDownThresholdValue.textContent = headDownThreshold;
+   
+    // 5. Display suggestions in the calibration UI
+    const thresholdsDiv = document.getElementById("suggestedThresholds");
+    if(thresholdsDiv) {
+        thresholdsDiv.innerHTML = `
+            Suggested Thresholds (Applied to Sensitivity Sliders):<br>
+            EAR Threshold: ${earThreshold.toFixed(2)}<br>
+            MAR Threshold: ${marThreshold.toFixed(2)}<br>
+            Head Down Threshold: ${headDownThreshold.toFixed(2)}<br>
+            (Head Turn must be set manually)
+        `;
+    }
+   
+    // 6. Save the data to the *current user's* profile
+    saveUserData(); // This now saves calibrationData as well
+   
+    // 7. Show toast notification (using global function)
+    showToast("Calibration applied and saved to your profile!", "success");
+    // 8. Maju ke langkah "Selesai"
+    calibFlowStep++;
+    renderCalibStep(calibFlowStep);
+}
+// Event listener untuk tombol start/stop utama
+calibStartCameraBtn.addEventListener("click", startCalibCamera);
+calibStopCameraBtn.addEventListener("click", stopCalibCamera); // Add listener for stop button
+// ==========================================================
+// === END: CALIBRATION LOGIC ===
+// ==========================================================
+// ==========================================================
+// === START: MAIN MONITORING LOGIC (PERUBAHAN BESAR) ===
+// ==========================================================
+// The rest remains the same as before
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const statusText = document.getElementById("statusText");
+const alertBox = document.getElementById("alertBox");
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const snapshotPreview = document.getElementById("snapshotPreview");
+const snapshotImg = document.getElementById("snapshotImg");
+const logContent = document.getElementById("logContent");
+const drowsyLogContent = document.getElementById("drowsyLogContent");
+const yawnLogContent = document.getElementById("yawnLogContent");
+// const toastContainer = document.getElementById("toastContainer"); // Already defined
+let running = false;
+let canDetect = true;
+let eyesClosedStart = null;
+let headDownStart = null;
+let lastYawnLaughTime = 0;
+// === PERBAIKAN BUG: Mengganti nama variabel state ===
+let isDriving = false; // Menggantikan 'faceDetected'
+let faceStartTime = null;
+let normalDetected = false;
+let normalStartTime = null;
+// === PERMINTAAN BARU: State Variable Kepala Menoleh ===
+let headTurnStart = null;
+// === PERMINTAAN BARU: State Variable Wajah Hilang ===
+let faceLostStart = null;
+// === INDEX LANDMARK (Defined globally once) ===
+const LEFT_EYE_INDEX = [33, 160, 158, 133, 153, 144];
+const RIGHT_EYE_INDEX = [263, 387, 385, 362, 380, 373];
+const MOUTH_INDEX = [61, 81, 311, 308, 13, 14];
+const NOSE_TIP = 1;
+const CHIN = 152;
+const FOREHEAD = 10;
+// === PERMINTAAN BARU: Landmark Kepala Menoleh ===
+const LEFT_CHEEK = 132;
+const RIGHT_CHEEK = 361;
+// === FUNGSI KALKULASI UTAMA ===
+// 'videoSource' bisa berupa 'results.image' atau elemen <video>
+// Fungsi ini sekarang aman dari NaN karena 'results.image' selalu punya .width/.height
+function dist(p1, p2, videoSource){
+  const w = videoSource.width;
+  const h = videoSource.height;
+ 
+  return Math.hypot(
+    (p1.x - p2.x) * w,
+    (p1.y - p2.y) * h
+  );
+}
+// === PERMINTAAN BARU: Helper untuk Jarak Horizontal ===
+function horizontal_dist(p1, p2, videoSource){
+  const w = videoSource.width;
+  return Math.abs(p1.x - p2.x) * w;
+}
+function calcEAR(eye, videoSource){
+  const A = dist(eye[1], eye[5], videoSource);
+  const B = dist(eye[2], eye[4], videoSource);
+  const C = dist(eye[0], eye[3], videoSource);
+  return (A + B) / (2.0 * C);
+}
+function calcMAR(mouth, videoSource){
+  const vertical = dist(mouth[4], mouth[5], videoSource);
+  const horizontal = dist(mouth[0], mouth[2], videoSource);
+  return vertical / horizontal;
+}
+function calcHeadDown(nose, forehead, chin, videoSource){
+  const up = dist(nose, forehead, videoSource);
+  const down = dist(nose, chin, videoSource);
+  return up / down;
+}
+// === PERMINTAAN BARU: Fungsi Kalkulasi Kepala Menoleh ===
+function calcHeadTurn(nose, leftCheek, rightCheek, videoSource){
+  // Landmark 132 (leftCheek) adalah pipi KIRI orang tsb.
+  // Landmark 361 (rightCheek) adalah pipi KANAN orang tsb.
+  const distLeft = horizontal_dist(nose, leftCheek, videoSource);
+  const distRight = horizontal_dist(nose, rightCheek, videoSource);
+ 
+  if (distRight === 0) return 1; // Hindari pembagian dengan nol
+  return distLeft / distRight;
+  // Saat lurus: distLeft ≈ distRight, rasio ≈ 1.0
+  // Saat menoleh ke KANANNYA (melihat ke KIRI layar):
+  // distLeft NAIK, distRight TURUN. Rasio > 1.0 (misal 2.0)
+  // Saat menoleh ke KIRINYA (melihat ke KANAN layar):
+  // distLeft TURUN, distRight NAIK. Rasio < 1.0 (misal 0.5)
+}
+// === AKHIR FUNGSI KALKULASI ===
+faceMesh.onResults(onResults); // Main monitoring results
+const { FACEMESH_LEFT_EYE, FACEMESH_RIGHT_EYE, FACEMESH_LIPS, FACEMESH_LEFT_IRIS, FACEMESH_RIGHT_IRIS } = FaceMesh;
+// === MODIFIED: This function now fixes the "gepeng" canvas issue ===
+async function startCamera(){
+  try{
+    statusText.textContent = "Requesting camera access...";
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+   
+    // --- FIX: Wait for video metadata to load before setting canvas size ---
+    video.onloadedmetadata = () => {
+   
+      // --- PERUBAHAN: Atur resolusi canvas agar sesuai rasio baru ---
+      const newAspectRatio = 3.2 / 3.3; // Rasio baru kita
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoWidth / newAspectRatio; // Hitung tinggi baru
+   
+      statusText.textContent = "Camera active, detecting face...";
+    };
+    // --- END FIX ---
+   
+    video.srcObject = stream;
+    await video.play();
+ 
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    addGeneralLog("Camera started.");
+    showToast("Camera started successfully!", "success");
+    detectLoop();
+    window.addEventListener('online', sendOfflineQueue); // Pastikan terdaftar
+  }catch(err){
+    statusText.textContent = "Failed to access camera: " + err.message;
+    showToast("Failed to access camera.", "error");
+  }
+}
+async function stopCamera(){
+  if (!running) return;
+  running = false;
+ 
+  takeSnapshotAndSend("Camera stopped");
+  // === PERBAIKAN BUG: Menggunakan 'isDriving' ===
+  if (isDriving) {
+    const now = Date.now();
+    const duration = (now - faceStartTime) / (1000 * 60 * 60);
+    addGeneralLog(`Stopped driving (camera stopped), duration: ${duration.toFixed(2)} hours`);
+    isDriving = false;
+    faceStartTime = null;
+  }
+ 
+  if (normalDetected) {
+    const now = Date.now();
+    const duration = (now - normalStartTime) / (1000 * 60 * 60);
+    addGeneralLog(`Ended normal focus (camera stopped), focus duration: ${duration.toFixed(2)} hours`);
+    normalDetected = false;
+    normalStartTime = null;
+  }
+  sendDailySummaryToTelegram();
+  addGeneralLog("Camera stopped.");
+  showToast("Camera stopped.", "success");
+ 
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+  }
+ 
+  statusText.textContent = "Camera stopped";
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  sendDailySummaryToTelegram();
+}
+async function detectLoop(){
+  if(!running) return;
+  await faceMesh.send({ image: video });
+  requestAnimationFrame(detectLoop);
+}
+function addGeneralLog(message){
+  const t = new Date().toLocaleString('en-US', { timeZone: selectedTimeZone }); // Use selected time zone
+  const entry = document.createElement("div");
+  entry.textContent = `[${t}] ${message}`;
+  logContent.prepend(entry);
+  saveUserData(); // Save on each new log
+}
+function addDrowsyLog(message){
+  const t = new Date().toLocaleString('en-US', { timeZone: selectedTimeZone });
+  const entry = document.createElement("div");
+  entry.textContent = `[${t}] ${message}`;
+  drowsyLogContent.prepend(entry);
+  saveUserData();
+}
+function addYawnLog(message){
+  const t = new Date().toLocaleString('en-US', { timeZone: selectedTimeZone });
+  const entry = document.createElement("div");
+  entry.textContent = `[${t}] ${message}`;
+  yawnLogContent.prepend(entry);
+  saveUserData();
+}
+// === FUNGSI: Kirim ke SEMUA konfigurasi ===
+async function sendToAllTelegram(imageBlob, caption){
+  if (configs.length === 0) {
+    addGeneralLog("No Telegram configurations to send to.");
+    showToast("No Telegram configurations.", "error");
+    return;
+  }
+  let successCount = 0;
+  let failCount = 0;
+  for (const config of configs) {
+    const formData = new FormData();
+    formData.append("chat_id", config.chatId);
+    formData.append("caption", `${caption} (to ${config.ownerName})`);
+    formData.append("photo", imageBlob, "alert.png");
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${config.botToken}/sendPhoto`, {
+        method: "POST",
+        body: formData
+      });
+      if (response.ok) {
+        successCount++;
+        addGeneralLog(`Successfully sent to ${config.ownerName}.`);
+      } else {
+        const err = await response.json();
+        addGeneralLog(`Failed to send to ${config.ownerName}: ${err.description}`);
+        failCount++;
+      }
+    } catch (err) {
+      addGeneralLog(`Network error to ${config.ownerName}: ${err.message}`);
+      failCount++;
+    }
+  }
+  addGeneralLog(`Photo sent: ${successCount} successful, ${failCount} failed.`);
+  if (successCount > 0 && failCount === 0) {
+    showToast(`Sending successful: ${successCount} configurations.`, "success");
+  } else if (failCount > 0) {
+    showToast(`Sending: ${successCount} successful, ${failCount} failed. Check log!`, "error");
+  }
+}
+// ==========================================================
+// === FUNGSI INI MENGANDUNG PERBAIKAN BUG ===
+// ==========================================================
+async function sendTextToAllTelegram(text) {
+  if (configs.length === 0) {
+    addGeneralLog("No Telegram configurations to send to.");
+    showToast("No Telegram configurations.", "error");
+    return;
+  }
+  let successCount = 0;
+  let failCount = 0;
+  for (const config of configs) {
+    const formData = new FormData();
+    formData.append("chat_id", config.chatId);
+    formData.append("text", `${text} (to ${config.ownerName})`);
+    try {
+      // === PERBAIKAN: Menghapus titik dua (:) ekstra dari https:: ===
+      const response = await fetch(`https://api.telegram.org/bot${config.botToken}/sendMessage`, {
+        method: "POST",
+        body: formData
+      });
+      // === AKHIR PERBAIKAN ===
+     
+      if (response.ok) {
+        successCount++;
+        addGeneralLog(`Successfully sent resume to ${config.ownerName}.`);
+      } else {
+        const err = await response.json();
+        addGeneralLog(`Failed to send resume to ${config.ownerName}: ${err.description}`);
+        failCount++;
+      }
+    } catch (err) {
+      addGeneralLog(`Network error to ${config.ownerName}: ${err.message}`);
+      failCount++;
+    }
+  }
+  addGeneralLog(`Resume sent: ${successCount} successful, ${failCount} failed.`);
+  if (successCount > 0 && failCount === 0) {
+    showToast(`Resume sending successful: ${successCount} configurations.`, "success");
+  } else if (failCount > 0) {
+    showToast(`Resume sending: ${successCount} successful, ${failCount} failed. Check log!`, "error");
+  }
+}
+// === FUNGSI: Hitung dan kirim summary harian saat kamera dimatikan ===
+async function sendDailySummaryToTelegram() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const generalLogs = getLogsFromUI('general');
+  let totalFocusHours = 0, faceLossCount = 0;
+  generalLogs.forEach(log => {
+    const logDate = parseLogTimestamp(log);
+    if (logDate && logDate >= todayStart && logDate <= todayEnd) {
+      const durationMatch = log.match(/focus duration: ([\d.]+) hours/);
+      if (durationMatch) totalFocusHours += parseFloat(durationMatch[1]);
+      if (log.includes('Stopped driving (face lost)')) faceLossCount++;
+    }
+  });
+
+  const drowsyLogs = getLogsFromUI('drowsy');
+  let drowsyCount = 0;
+  drowsyLogs.forEach(log => {
+    const logDate = parseLogTimestamp(log);
+    if (logDate && logDate >= todayStart && logDate <= todayEnd) drowsyCount++;
+  });
+
+  const yawnLogs = getLogsFromUI('yawn');
+  let yawnCount = 0;
+  yawnLogs.forEach(log => {
+    const logDate = parseLogTimestamp(log);
+    if (logDate && logDate >= todayStart && logDate <= todayEnd) yawnCount++;
+  });
+
+  const todayDate = todayStart.toLocaleDateString('en-US', { timeZone: selectedTimeZone });
+  const summaryText = `Daily Resume (${todayDate}):\nSent by: ${currentUser}\nTotal Focus: ${totalFocusHours.toFixed(2)} hours\nFatigue: ${drowsyCount}\nYawn: ${yawnCount}\nFace Loss: ${faceLossCount}`;
+
+  if (isOnline()) {
+    await sendTextToAllTelegram(summaryText);
+  } else {
+    // Simpan summary sebagai teks ke antrian
+    offlineQueue.push({
+      isText: true,
+      text: summaryText,
+      timestamp: Date.now()
+    });
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(offlineQueue));
+    showToast("Daily summary saved (will send when online).", "error");
+  }
+}
+function onResults(results){
+  // Ambil gambar video asli
+  const video = results.image; // 'video' di sini adalah results.image
+ 
+  // --- Logika menggambar 'object-fit: cover' dengan Zoom/Pan/Tilt ---
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+ 
+  const videoAspect = video.width / video.height; // Rasio video asli
+  const canvasAspect = canvas.width / canvas.height; // Rasio canvas baru
+  let sWidth, sHeight, sx_center, sy_center;
+ 
+  // 1. Hitung dimensi "cover" dasar
+  if (videoAspect > canvasAspect) {
+    sHeight = video.height;
+    sWidth = video.height * canvasAspect;
+  } else {
+    sWidth = video.width;
+    sHeight = video.width / canvasAspect;
+  }
+ 
+  // 2. Terapkan Zoom
+  sWidth = sWidth / currentZoom;
+  sHeight = sHeight / currentZoom;
+ 
+  // 3. Hitung titik TENGAH (sx, sy) dari area sumber
+  sx_center = (video.width - sWidth) / 2;
+  sy_center = (video.height - sHeight) / 2;
+ 
+  // 4. Terapkan Pan/Tilt
+  let sx = sx_center + (sx_center * currentPanX);
+  let sy = sy_center + (sy_center * currentPanY);
+ 
+  // 5. Pastikan (sx, sy) tidak keluar batas
+  sx = Math.max(0, Math.min(sx, video.width - sWidth));
+  sy = Math.max(0, Math.min(sy, video.height - sHeight));
+ 
+  // 6. Gambar ke canvas
+  ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+  // --- Akhir logika menggambar ---
+  const now = Date.now();
+ 
+  if(results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0){
+    // === PERBAIKAN BUG: Wajah terdeteksi, reset timer 'faceLost' ===
+    faceLostStart = null;
+   
+    // === PERBAIKAN BUG: Menggunakan 'isDriving' ===
+    if (!isDriving) {
+      isDriving = true;
+      faceStartTime = now;
+      addGeneralLog("Started driving (face detected)");
+    }
+   
+    // --- PERBAIKAN BUG ---
+ 
+    // Gunakan 'lm' (ASLI) untuk KALKULASI
+    const lm = results.multiFaceLandmarks[0];
+    const leftEye = LEFT_EYE_INDEX.map(i=>lm[i]);
+    const rightEye = RIGHT_EYE_INDEX.map(i=>lm[i]);
+    const mouth = MOUTH_INDEX.map(i=>lm[i]);
+    // === PERMINTAAN BARU: Ambil Landmark Kepala Menoleh ===
+    const noseLm = lm[NOSE_TIP];
+    const leftCheekLm = lm[LEFT_CHEEK];
+    const rightCheekLm = lm[RIGHT_CHEEK];
+ 
+    // Kalkulasi sekarang menggunakan 'video' (yaitu results.image) dan 'dist' yang sudah benar
+    const ear = (calcEAR(leftEye, video) + calcEAR(rightEye, video)) / 2.0;
+    const mar = calcMAR(mouth, video);
+    const headRatio = calcHeadDown(noseLm, lm[FOREHEAD], lm[CHIN], video);
+    // === PERMINTAAN BARU: Hitung Rasio Kepala Menoleh ===
+    const headTurnRatio = calcHeadTurn(noseLm, leftCheekLm, rightCheekLm, video);
+    // Buat 'transformedLm' (BARU) untuk MENGGAMBAR
+    const norm_sx = sx / video.width;
+    const norm_sy = sy / video.height;
+    const norm_sWidth = sWidth / video.width;
+    const norm_sHeight = sHeight / video.height;
+ 
+    const transformedLm = lm.map(point => ({
+      x: (point.x - norm_sx) / norm_sWidth,
+      y: (point.y - norm_sy) / norm_sHeight,
+      z: point.z
+    }));
+ 
+    // --- AKHIR PERBAIKAN BUG ---
+ 
+    // Gambar kotak biru (sekarang menggunakan transformedLm)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    transformedLm.forEach(point => {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    });
+    const paddingX = 1 / canvas.width;
+    minX += paddingX;
+    maxX -= paddingX;
+    if (minX < maxX) {
+      ctx.strokeStyle = 'blue';
+      ctx.lineWidth = 2;
+      // 'minX * canvas.width' sekarang akan proporsional!
+      ctx.strokeRect(minX * canvas.width, minY * canvas.height, (maxX - minX) * canvas.width, (maxY - minY) * canvas.height);
+    }
+   
+    // Gambar mesh (sekarang menggunakan transformedLm)
+    drawConnectors(ctx, transformedLm, FACEMESH_LEFT_EYE, {color:"#00FF00", lineWidth:1});
+    drawConnectors(ctx, transformedLm, FACEMESH_RIGHT_EYE, {color:"#00FF00", lineWidth:1});
+    drawConnectors(ctx, transformedLm, FACEMESH_LIPS, {color:"#FFA500", lineWidth:1});
+    // === PERMINTAAN BARU: Gambar Iris ===
+    drawConnectors(ctx, transformedLm, FACEMESH_LEFT_IRIS, {color:"#FF0000", lineWidth:1});
+    drawConnectors(ctx, transformedLm, FACEMESH_RIGHT_IRIS, {color:"#FF0000", lineWidth:1});
+   
+    // Sisa logika (deteksi) tetap sama, tapi sekarang didasarkan pada kalkulasi yang benar
+    let expression = "Neutral";
+   
+    if (ear < earThreshold && mar < marThreshold) {
+      if (!eyesClosedStart) eyesClosedStart = now;
+      const dur = now - eyesClosedStart;
+      if (dur > drowsyTime && canDetect) {
+        triggerAlert();
+        takeSnapshotAndSend("Fatigue (eyes and mouth closed for long)");
+        addDrowsyLog(`Fatigue detected (${(dur/1000).toFixed(1)}s)`);
+        resetDetectionCooldown();
+      }
+      expression = "Fatigue";
+    } else {
+      eyesClosedStart = null;
+    }
+    if (ear < earThreshold && mar >= marThreshold && now - lastYawnLaughTime > yawnCooldown) {
+      addYawnLog("Yawn/Laugh detected (eyes closed, mouth open) - Not fatigue!");
+      lastYawnLaughTime = now;
+      expression = "Yawn/Laugh";
+    }
+   
+    if (headRatio > headDownThreshold) {
+      if (!headDownStart) headDownStart = now;
+      const dur = now - headDownStart;
+      if (dur > headDownTime && canDetect) {
+        triggerAlert();
+        takeSnapshotAndSend("Loss of focus (head down)");
+        addDrowsyLog(`Loss of focus detected (head down) (${(dur/1000).toFixed(1)}s)`);
+        resetDetectionCooldown();
+      }
+      expression = "Loss of Focus";
+    } else {
+      headDownStart = null;
+    }
+   
+    // === PERMINTAAN BARU: Logika Deteksi Kepala Menoleh ===
+    if (headTurnRatio > headTurnThreshold || headTurnRatio < headTurnMinThreshold) {
+        if (!headTurnStart) headTurnStart = now;
+        const dur = now - headTurnStart;
+        if (dur > headTurnTime && canDetect) {
+            triggerAlert();
+            takeSnapshotAndSend("Loss of focus (head turned aside)");
+            // Masukkan ke log yang sama
+            addDrowsyLog(`Loss of focus detected (head turn) (${(dur/1000).toFixed(1)}s)`);
+            resetDetectionCooldown();
+        }
+        expression = "Head Turn";
+    } else {
+        headTurnStart = null;
+    }
+    // === AKHIR PERMINTAAN BARU ===
+    // === PERMINTAAN BARU: Update Status Teks ===
+    statusText.textContent = `EAR: ${ear.toFixed(3)} | MAR: ${mar.toFixed(3)} | Head: ${headRatio.toFixed(3)} | Turn: ${headTurnRatio.toFixed(3)} | ${expression}`;
+    if (expression === "Neutral") {
+      if (!normalDetected) {
+        normalDetected = true;
+        normalStartTime = now;
+        addGeneralLog("Started normal focus");
+      }
+    } else {
+      if (normalDetected) {
+        const duration = (now - normalStartTime) / (1000 * 60 * 60);
+        addGeneralLog(`Ended normal focus (expression: ${expression}), focus duration: ${duration.toFixed(2)} hours`);
+        normalDetected = false;
+      }
+    }
+  } else {
+    // === PERBAIKAN BUG: Logika Wajah Hilang yang Diperbaiki ===
+    if (isDriving) { // Hanya jalankan jika kita *sebelumnya* mengemudi
+     
+      if (!faceLostStart) {
+        faceLostStart = now; // Mulai timer
+      }
+      const dur = now - faceLostStart;
+      // Periksa apakah timer sudah melebihi batas DAN deteksi diizinkan
+      if (dur > faceLostTime && canDetect) {
+        triggerAlert();
+        takeSnapshotAndSend("Loss of focus (face lost from frame)");
+        addDrowsyLog(`Loss of focus detected (face lost) (${(dur/1000).toFixed(1)}s)`);
+        resetDetectionCooldown();
+       
+        // Catat akhir dari sesi mengemudi
+        const duration = (now - faceStartTime) / (1000 * 60 * 60);
+        if (duration > 0) {
+          addGeneralLog(`Stopped driving (face lost), duration: ${duration.toFixed(2)} hours`);
+        }
+       
+        // Reset status sesi
+        isDriving = false;
+        faceStartTime = null;
+        faceLostStart = null; // Reset timer setelah peringatan
+      }
+    }
+    // === AKHIR PERBAIKAN BUG ===
+    if (normalDetected) {
+      const duration = (now - normalStartTime) / (1000 * 60 * 60);
+      addGeneralLog(`Ended normal focus (face lost), focus duration: ${duration.toFixed(2)} hours`);
+      normalDetected = false;
+    }
+    // Reset semua timer status sementara
+    headTurnStart = null;
+    headDownStart = null;
+    eyesClosedStart = null;
+   
+    statusText.textContent = "Face not detected";
+  }
+}
+function resetDetectionCooldown(){
+  canDetect = false;
+  setTimeout(()=>{ canDetect = true; addGeneralLog("System ready to detect again."); showToast("Detection ready again.", "success"); }, 3000);
+}
+function triggerAlert(){
+  alertBox.style.display = "block";
+  const audioCtx = new AudioContext();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = 700;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  setTimeout(()=>{ osc.stop(); audioCtx.close(); }, 400);
+  setTimeout(()=>{ alertBox.style.display = "none"; }, 4000);
+}
+// === MODIFIED: Use sendToAllTelegram ===
+function takeSnapshotAndSend(reason){
+  const snapshotCanvas = document.createElement("canvas");
+  snapshotCanvas.width = video.videoWidth;
+  snapshotCanvas.height = video.videoHeight;
+  const sctx = snapshotCanvas.getContext("2d");
+  sctx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+  snapshotCanvas.toBlob(async (blob)=>{
+    const imageUrl = URL.createObjectURL(blob);
+    snapshotPreview.style.display = "block";
+    snapshotImg.src = imageUrl;
+
+    const time = new Date().toLocaleString('en-US', { timeZone: selectedTimeZone });
+    const userCaption = `${reason} at ${time} by user ${currentUser}`;
+
+    if (isOnline()) {
+      await sendToAllTelegram(blob, userCaption);
+    } else {
+      enqueueForTelegram(blob, userCaption);
+    }
+  }, "image/png");
+}
+function showToast(message, type = "success") {
+  const toast = document.createElement("div");
+  toast.classList.add("toast");
+  if (type === "error") toast.classList.add("error");
+  toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${message}`;
+  toastContainer.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+}
+startBtn.addEventListener("click", startCamera);
+stopBtn.addEventListener("click", stopCamera);
+cancelConfigBtn.addEventListener("click", clearInputs);
+// Load configurations when page opens (but after login)
+// ==========================================================
+// === END: MAIN MONITORING LOGIC ===
+// ==========================================================
+</script>
+<script>
+// === OFFLINE QUEUE SYSTEM ===
+const OFFLINE_QUEUE_KEY = 'loffa_offline_queue';
+let offlineQueue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)) || [];
+
+// Cek koneksi internet
+function isOnline() {
+  return navigator.onLine;
+}
+
+// Simpan ke antrian offline
+function enqueueForTelegram(blob, caption) {
+  const entry = {
+    blobUrl: URL.createObjectURL(blob),
+    caption: caption,
+    timestamp: Date.now()
+  };
+  offlineQueue.push(entry);
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(offlineQueue));
+  showToast(`No internet. Alert saved (will send when online).`, "error");
+  addGeneralLog(`[OFFLINE] Alert queued: ${caption}`);
+}
+
+// Kirim antrian saat online
+async function sendOfflineQueue() {
+  if (!isOnline() || offlineQueue.length === 0) return;
+
+  showToast(`Sending ${offlineQueue.length} queued items...`, "success");
+  addGeneralLog(`Sending ${offlineQueue.length} queued offline alerts...`);
+
+  for (let i = 0; i < offlineQueue.length; i++) {
+    const item = offlineQueue[i];
+    if (item.isText) {
+      await sendTextToAllTelegram(item.text + " [sent after offline]");
+    } else {
+      const blob = await fetch(item.blobUrl).then(r => r.blob());
+      await sendToAllTelegram(blob, item.caption + " [sent after offline]");
+      URL.revokeObjectURL(item.blobUrl);
+    }
+  }
+
+  offlineQueue = [];
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(offlineQueue));
+  showToast("All queued items sent!", "success");
+}
+
+// Cek saat online
+window.addEventListener('online', sendOfflineQueue);
+// Suppress MediaPipe WASM logs (hilangkan semua I/W dari console)
+const originalLog = console.log;
+console.log = function(...args) {
+  if (typeof args[0] === 'string' && args[0].includes('1117')) return; // skip tanggal log
+  if (typeof args[0] === 'string' && args[0].startsWith('I') || args[0].startsWith('W')) return;
+  originalLog.apply(console, args);
+};
+</script>
+</body>
+</html>
