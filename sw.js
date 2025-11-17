@@ -1,4 +1,4 @@
-const CACHE_NAME = 'loffa-cache-v2';
+const CACHE_NAME = 'loffa-cache-v3';
 
 // prefix folder GitHub Pages
 const BASE = '/loffa-app';
@@ -39,4 +39,5 @@ self.addEventListener('fetch', event => {
     );
   }
 });
+
 
