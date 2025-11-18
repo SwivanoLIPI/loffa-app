@@ -970,9 +970,9 @@ const faceMesh = new FaceMesh({
 });
 faceMesh.setOptions({
   maxNumFaces: 1,
-  refineLandmarks: true,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5
+  refineLandmarks: false,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7
 });
 faceMesh.onResults(onResults); // Main monitoring
 const calibFaceMesh = new FaceMesh({
@@ -980,9 +980,9 @@ const calibFaceMesh = new FaceMesh({
 });
 calibFaceMesh.setOptions({
   maxNumFaces: 1,
-  refineLandmarks: true,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5
+  refineLandmarks: false,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7
 });
 calibFaceMesh.onResults(onCalibResults); // Calibration
 // === PERUBAHAN BARU: Variabel global untuk Chart ===
@@ -1709,7 +1709,9 @@ async function startCalibCamera() {
     try {
         calibStatus.textContent = "Requesting camera access...";
         calibStatus.style.display = "block";
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 240, facingMode: "user" }
+        });
        
         calibVideo.onloadedmetadata = () => {
             calibCanvas.width = calibVideo.videoWidth;
@@ -1757,10 +1759,14 @@ function stopCalibCamera() {
    
     showToast("Calibration camera stopped.", "success");
 }
-async function calibDetectLoop() {
-    if (!calibRunning) return;
-    await calibFaceMesh.send({ image: calibVideo });
-    requestAnimationFrame(calibDetectLoop);
+let lastCalibTime = 0;
+function calibDetectLoop(timestamp) {
+  if (!calibRunning) return;
+  if (timestamp - lastCalibTime >= 50) {  // 20 FPS
+    calibFaceMesh.send({ image: calibVideo });
+    lastCalibTime = timestamp;
+  }
+  requestAnimationFrame(calibDetectLoop);
 }
 // =================================================================
 // === FUNGSI INI TELAH DIPERBARUI TOTAL UNTUK MEMPERBAIKI "GEPENG" ===
@@ -2231,7 +2237,9 @@ const { FACEMESH_LEFT_EYE, FACEMESH_RIGHT_EYE, FACEMESH_LIPS, FACEMESH_LEFT_IRIS
 async function startCamera(){
   try{
     statusText.textContent = "Requesting camera access...";
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    const stream = await navigator.mediaDevices.getUserMedia({
+  video: { width: 320, height: 240, facingMode: "user" }
+});
    
     // --- FIX: Wait for video metadata to load before setting canvas size ---
     video.onloadedmetadata = () => {
@@ -2296,10 +2304,10 @@ async function stopCamera(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   sendDailySummaryToTelegram();
 }
-async function detectLoop(){
-  if(!running) return;
-  await faceMesh.send({ image: video });
-  requestAnimationFrame(detectLoop);
+function detectLoop() {
+  if (!running) return;
+  faceMesh.send({ image: video });
+  setTimeout(detectLoop, 50); // 20 FPS tetap
 }
 function addGeneralLog(message){
   const t = new Date().toLocaleString('en-US', { timeZone: selectedTimeZone }); // Use selected time zone
