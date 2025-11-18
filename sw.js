@@ -43,14 +43,18 @@ workbox.routing.registerRoute(
   })
 );
 
-// Precache file utama (tambahkan semua file penting)
+workbox.precaching.addPlugins([
+  new workbox.precaching.PrecacheFallbackPlugin({
+    fallbackURL: '/index.html',  // Fallback ke index jika root 404
+  }),
+]);
+
 workbox.precaching.precacheAndRoute([
-  { url: '/', revision: null },
-  { url: '/index.html', revision: null },
+  { url: '/index.html', revision: null },  // Ganti '/' dengan ini
   { url: '/all.css', revision: null },
   { url: '/manifest.json', revision: null },
   { url: '/assets/chart.js', revision: null },
   { url: '/assets/mediapipe/face_mesh/face_mesh.js', revision: null },
   { url: '/assets/mediapipe/drawing_utils.js', revision: null },
-  // Tambahkan file lain kalau perlu
+  // Tambahkan file lain jika perlu, termasuk fonts jika ada
 ]);
