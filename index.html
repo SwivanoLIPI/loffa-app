@@ -734,16 +734,16 @@ button#startCalibCamera:hover, button#stopCalibCamera:hover {
   <button id="authBtn">Login</button>
   <button id="toggleAuth">Don't have an account? Sign up here</button>
 </div>
-<button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+<button id="logoutBtn"><i class="fa-solid fa-sign-out-alt"></i> Logout</button>
 <div class="tab-container" id="mainApp">
   <div class="tab-buttons">
-    <button class="tab-button active" data-tab="video">Moni-<br>tor <i class="fas fa-video"></i></button>
-    <button class="tab-button" data-tab="config">Confi-<br>guration <i class="fas fa-cog"></i></button>
-    <button class="tab-button" data-tab="calibration">Cali-<br>bration <i class="fas fa-ruler-combined"></i></button>
-    <button class="tab-button" data-tab="generalLog">General Log <i class="fas fa-file-lines"></i></button>
-    <button class="tab-button" data-tab="drowsyLog">Fatigue & Loss of Focus Log <i class="fas fa-bed"></i></button>
-    <button class="tab-button" data-tab="yawnLog">Yawn & Laugh Log <i class="fas fa-laugh"></i></button>
-    <button class="tab-button" data-tab="dailyReview">Daily Table <i class="fas fa-calendar-alt"></i></button>
+    <button class="tab-button active" data-tab="video">Moni-<br>tor <i class="fa-solid fa-video"></i></button>
+    <button class="tab-button" data-tab="config">Confi-<br>guration <i class="fa-solid fa-cog"></i></button>
+    <button class="tab-button" data-tab="calibration">Cali-<br>bration <i class="fa-solid fa-ruler-combined"></i></button>
+    <button class="tab-button" data-tab="generalLog">General Log <i class="fa-solid fa-file-lines"></i></button>
+    <button class="tab-button" data-tab="drowsyLog">Fatigue & Loss of Focus Log <i class="fa-solid fa-bed"></i></button>
+    <button class="tab-button" data-tab="yawnLog">Yawn & Laugh Log <i class="fa-solid fa-laugh"></i></button>
+    <button class="tab-button" data-tab="dailyReview">Daily Table <i class="fa-solid fa-calendar-alt"></i></button>
   </div>
   <div id="videoTab" class="tab-content active">
     <div id="videoContainer">
@@ -751,7 +751,7 @@ button#startCalibCamera:hover, button#stopCalibCamera:hover {
       <canvas id="canvas"></canvas>
     </div>
     <button id="toggleSettingsBtn">
-        <i class="fas fa-eye"></i> Show Display & Sensitivity Settings
+        <i class="fa-solid fa-eye"></i> Show Display & Sensitivity Settings
     </button>
    
     <div id="settingsContainer">
@@ -816,14 +816,14 @@ button#startCalibCamera:hover, button#stopCalibCamera:hover {
           <input type="range" id="faceLostTime" min="1000" max="10000" value="3000" step="100">
           <span id="faceLostTimeValue">3000</span>
         </div>
-        <button id="saveSensitivity"><i class="fas fa-save"></i> Save Sensitivity Settings</button>
+        <button id="saveSensitivity"><i class="fa-solid fa-save"></i> Save Sensitivity Settings</button>
       </div>
     </div>
     <div id="status">Status: <span id="statusText">Waiting for camera...</span></div>
-    <div class="alert" id="alertBox">Fatigue or Loss of Focus detected! <i class="fas fa-exclamation-triangle"></i></div>
+    <div class="alert" id="alertBox">Fatigue or Loss of Focus detected! <i class="fa-solid fa-exclamation-triangle"></i></div>
     <div class="camera-buttons">
-      <button id="startBtn"><i class="fas fa-play"></i> Start Monitoring</button>
-      <button id="stopBtn" disabled><i class="fas fa-stop"></i> Stop Camera</button>
+      <button id="startBtn"><i class="fa-solid fa-play"></i> Start Monitoring</button>
+      <button id="stopBtn" disabled><i class="fa-solid fa-stop"></i> Stop Camera</button>
     </div>
     <div id="snapshotPreview">
       <h3>Last Photo:</h3>
@@ -842,7 +842,7 @@ button#startCalibCamera:hover, button#stopCalibCamera:hover {
         <option value="America/New_York">America/New_York (EST)</option>
         <option value="Europe/London">Europe/London (GMT)</option>
         </select>
-      <button id="saveTimezone"><i class="fas fa-save"></i> Save Time Zone</button>
+      <button id="saveTimezone"><i class="fa-solid fa-save"></i> Save Time Zone</button>
     </div>
     <div id="configPage">
       <h3>Telegram Configuration</h3>
@@ -853,8 +853,8 @@ button#startCalibCamera:hover, button#stopCalibCamera:hover {
       <input type="text" id="botToken" class="input-full" placeholder="Enter Telegram Bot Token">
       <label for="chatId">Chat ID:</label>
       <input type="text" id="chatId" class="input-full" placeholder="Enter Chat ID">
-      <button id="saveConfig"><i class="fas fa-save"></i> Save</button>
-      <button id="cancelConfig"><i class="fas fa-times"></i> Cancel</button>
+      <button id="saveConfig"><i class="fa-solid fa-save"></i> Save</button>
+      <button id="cancelConfig"><i class="fa-solid fa-times"></i> Cancel</button>
       <table id="configTable">
         <thead>
           <tr>
@@ -937,8 +937,8 @@ button#startCalibCamera:hover, button#stopCalibCamera:hover {
         <h3 style="text-align: center; color: #2c3e50;">Face Metric Calibration</h3>
         <p style="text-align: center; font-size: 14px; color: #34495e;">Use this tool to find your personal thresholds. The suggested values will be automatically applied to the sensitivity sliders above.</p>
         <div style="text-align: center;">
-            <button id="startCalibCamera"><i class="fas fa-play"></i> Start Camera for Calibration</button>
-            <button id="stopCalibCamera" style="display: none;"><i class="fas fa-stop"></i> Stop Calibration Camera</button>
+            <button id="startCalibCamera"><i class="fa-solid fa-play"></i> Start Camera for Calibration</button>
+            <button id="stopCalibCamera" style="display: none;"><i class="fa-solid fa-stop"></i> Stop Calibration Camera</button>
         </div>
         <div id="calibVideoContainer" style="display: none;">
             <video id="calibVideo" autoplay muted playsinline></video>
@@ -1037,11 +1037,11 @@ panYSlider.addEventListener('input', (e) => {
 toggleSettingsBtn.addEventListener('click', () => {
   if (settingsContainer.style.display === 'none' || settingsContainer.style.display === '') {
     settingsContainer.style.display = 'block';
-    toggleSettingsBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Settings';
+    toggleSettingsBtn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Hide Settings';
     toggleSettingsBtn.style.background = '#e74c3c'; // Ganti warna jadi merah
   } else {
     settingsContainer.style.display = 'none';
-    toggleSettingsBtn.innerHTML = '<i class="fas fa-eye"></i> Show Display & Sensitivity Settings';
+    toggleSettingsBtn.innerHTML = '<i class="fa-solid fa-eye"></i> Show Display & Sensitivity Settings';
     toggleSettingsBtn.style.background = '#95a5a6'; // Kembali ke abu-abu
   }
 });
@@ -1386,8 +1386,8 @@ function loadConfigs() {
       <td>${config.botToken.substring(0, 10)}...</td>
       <td>${config.chatId}</td>
       <td>
-        <button onclick="editConfig(${index})"><i class="fas fa-edit"></i> Edit</button>
-        <button onclick="deleteConfig(${index})"><i class="fas fa-trash"></i> Delete</button>
+        <button onclick="editConfig(${index})"><i class="fa-solid fa-edit"></i> Edit</button>
+        <button onclick="deleteConfig(${index})"><i class="fa-solid fa-trash"></i> Delete</button>
       </td>
     `;
     configTableBody.appendChild(row);
@@ -1579,13 +1579,13 @@ function loadDailyReviewTelegramTable() {
           <td>${config.chatId}</td>
           <td>
             <button onclick="sendReportToUser(${index}, 'today')" title="Send Today's Report">
-                <i class="fas fa-calendar-day"></i> Today
+                <i class="fa-solid fa-calendar-day"></i> Today
             </button>
             <button onclick="sendReportToUser(${index}, 'month')" title="Send This Month's Report">
-                <i class="fas fa-calendar-alt"></i> Month
+                <i class="fa-solid fa-calendar-alt"></i> Month
             </button>
             <button onclick="sendReportToUser(${index}, 'year')" title="Send This Year's Report">
-                <i class="fas fa-calendar-week"></i> Year
+                <i class="fa-solid fa-calendar-week"></i> Year
             </button>
           </td>
         `;
@@ -1979,7 +1979,7 @@ function renderCalibStep(stepIndex) {
                     ${createSnapshotHtml(mouthOpen, 'Review: Last Frame (Mouth Open)')}
                    
                     <p style="margin-top: 20px;">Click below to calculate and apply these new thresholds to the Monitoring tab.</p>
-                    <button id="saveCalibration" style="width: 100%;"><i class="fas fa-save"></i> Save Calibration & Suggest Thresholds</button>
+                    <button id="saveCalibration" style="width: 100%;"><i class="fa-solid fa-save"></i> Save Calibration & Suggest Thresholds</button>
                     <div id="suggestedThresholds" style="margin-top: 20px; font-weight: bold;"></div>
                 </div>
             `;
@@ -1993,7 +1993,7 @@ function renderCalibStep(stepIndex) {
                     <h3>All Set!</h3>
                     <p>Your new thresholds have been calculated, saved to your profile, and applied to the sliders in the <strong>Monitor</strong> tab.</p>
                     <p>You can now stop the calibration camera or run the calibration again.</p>
-                    <button id="restartCalibration" style="width: 100%; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);"><i class="fas fa-redo"></i> Run Calibration Again</button>
+                    <button id="restartCalibration" style="width: 100%; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);"><i class="fa-solid fa-redo"></i> Run Calibration Again</button>
                 </div>
             `;
             container.innerHTML = htmlContent;
@@ -2713,7 +2713,7 @@ function showToast(message, type = "success") {
   const toast = document.createElement("div");
   toast.classList.add("toast");
   if (type === "error") toast.classList.add("error");
-  toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${message}`;
+  toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${message}`;
   toastContainer.appendChild(toast);
   setTimeout(() => toast.remove(), 5000);
 }
